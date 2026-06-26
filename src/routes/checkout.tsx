@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { createLead } from "@/lib/services/leads.service";
 import { supabase } from "@/lib/supabase";
 import { trackEvent } from "@/lib/analytics";
+import { generateIdempotencyKey } from "@/lib/utils";
 import {
   ShoppingBag,
   ChevronLeft,
@@ -126,7 +127,7 @@ function CheckoutPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [idempotencyKey] = useState(() => crypto.randomUUID());
+  const [idempotencyKey] = useState(() => generateIdempotencyKey());
 
   // ─── API ViaCEP ───────────────────────────────────────────────────────────
   async function handleCepBlur(e: React.FocusEvent<HTMLInputElement>) {
@@ -189,8 +190,10 @@ function CheckoutPage() {
 
   const submit = async () => {
     setIsSubmitting(true);
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     // Abre a janela IMEDIATAMENTE antes de qualquer await para evitar bloqueador de popup do navegador
-    const newWindow = window.open("about:blank", "_blank");
+    // No celular, não abrimos nova aba porque usaremos o redirect na mesma aba para evitar about:blank.
+    const newWindow = !isMobile ? window.open("about:blank", "_blank") : null;
 
     try {
       const finalItems = items.map(({ product, qty, selectedSize, selectedColor }) => ({
@@ -292,10 +295,12 @@ function CheckoutPage() {
 
       const link = whatsappLink(lines);
 
-      if (newWindow) {
+      if (isMobile) {
+        window.location.href = link;
+      } else if (newWindow) {
         newWindow.location.href = link;
       } else {
-        window.location.href = link; // Fallback se o navegador bloquear o window.open
+        window.open(link, "_blank"); // Fallback
       }
 
       toast.success("Pedido enviado! Aguarde nosso contato pelo WhatsApp.");
@@ -547,8 +552,23 @@ function CheckoutPage() {
                               </span>
                               <button
                                 type="button"
-                                onClick={() => setQty(cartItemId, qty + 1)}
-                                className="w-11 h-11 sm:w-8 sm:h-8 flex items-center justify-center text-[#D91672] hover:bg-zinc-100 transition-colors cursor-pointer"
+                                onClick={() => {
+                                  const variation = product.variacoes?.find((v) => v.cor === selectedColor);
+                                  const maxStock = selectedSize && variation?.estoquePorTamanho
+                                    ? variation.estoquePorTamanho[selectedSize] ?? 999
+                                    : 999;
+                                  if (qty < maxStock) {
+                                    setQty(cartItemId, qty + 1);
+                                  }
+                                }}
+                                className="w-11 h-11 sm:w-8 sm:h-8 flex items-center justify-center text-[#D91672] hover:bg-zinc-100 transition-colors cursor-pointer disabled:opacity-40"
+                                disabled={(() => {
+                                  const variation = product.variacoes?.find((v) => v.cor === selectedColor);
+                                  const maxStock = selectedSize && variation?.estoquePorTamanho
+                                    ? variation.estoquePorTamanho[selectedSize] ?? 999
+                                    : 999;
+                                  return qty >= maxStock;
+                                })()}
                               >
                                 <Plus className="h-4 w-4" />
                               </button>

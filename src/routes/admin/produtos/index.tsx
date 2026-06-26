@@ -83,7 +83,7 @@ function AdminProdutosList() {
 
   // Metrics
   const totalProducts = products.length;
-  const activeHighlights = products.filter((p) => p.is_featured || p.is_bestseller).length;
+  const activeHighlights = products.filter((p) => p.is_new || p.is_bestseller).length;
   const uniqueCategories = new Set(products.map((p) => p.category?.name).filter(Boolean)).size;
   const totalStock = products.reduce((acc, p) => {
     const pStock =
@@ -254,12 +254,12 @@ function AdminProdutosList() {
                           <p className="text-xs text-zinc-500 truncate">
                             Ref: {product.sku?.replace(/^REF[-\s:]*/i, "")}
                           </p>
-                          {(product.is_featured ||
+                          {(product.is_new ||
                             product.is_bestseller ||
                             (product.promotional_price &&
                               Number(product.promotional_price) > 0)) && (
                             <div className="flex flex-wrap items-center gap-1 mt-1">
-                              {product.is_featured && (
+                              {product.is_new && (
                                 <span className="inline-flex items-center rounded-full bg-purple-50 px-1.5 py-0.5 text-[10px] font-medium text-purple-700 ring-1 ring-inset ring-purple-600/20">
                                   Lançamento
                                 </span>

@@ -6,7 +6,7 @@ import { useCart } from "@/lib/bag-store";
 import { useSearch } from "@/lib/search-store";
 import { INSTAGRAM_URL, STORE_NAME, WHATSAPP_NUMBER, whatsappLink } from "@/lib/config";
 import { WhatsAppIcon } from "@/components/ui/whatsapp-icon";
-import { CATEGORIES } from "@/data/categories";
+import { useCategories } from "@/lib/categories-store";
 import { getAutocompleteResults, type AutocompleteResponse } from "@/lib/services/search.service";
 import { getOptimizedImageUrl } from "@/lib/utils";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -120,6 +120,7 @@ interface HeaderProps {
 const placeholders = ["vestidos", "conjuntos", "croppeds", "saias", "calças", "macacões"];
 
 export function Header({ showCategories = false }: HeaderProps) {
+  const CATEGORIES = useCategories();
   const { count, setOpen } = useCart();
   const { query, setQuery } = useSearch();
   const navigate = useNavigate();

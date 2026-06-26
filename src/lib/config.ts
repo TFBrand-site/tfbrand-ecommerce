@@ -7,8 +7,9 @@ export const CONTACT_EMAIL = "tfbrandteck@gmail.com";
 
 export const whatsappLink = (text: string) => {
   const encodedText = encodeURIComponent(text);
-  const isMobile = typeof navigator !== "undefined" && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-  
+  const isMobile =
+    typeof navigator !== "undefined" && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
   if (isMobile) {
     return `whatsapp://send?phone=${WHATSAPP_NUMBER}&text=${encodedText}`;
   }

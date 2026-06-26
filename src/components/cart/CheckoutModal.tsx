@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { createLead } from "@/lib/services/leads.service";
 import { supabase } from "@/lib/supabase";
 import { trackEvent } from "@/lib/analytics";
+import { generateIdempotencyKey } from "@/lib/utils";
 import {
   ShoppingBag,
   X,
@@ -129,7 +130,7 @@ export function CheckoutModal({ open, onClose }: { open: boolean; onClose: () =>
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [idempotencyKey] = useState(() => crypto.randomUUID());
+  const [idempotencyKey] = useState(() => generateIdempotencyKey());
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -253,7 +254,11 @@ export function CheckoutModal({ open, onClose }: { open: boolean; onClose: () =>
 
       const link = whatsappLink(lines);
       const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-      window.open(link, isMobile ? "_self" : "_blank");
+      if (isMobile) {
+        window.location.href = link;
+      } else {
+        window.open(link, "_blank");
+      }
       toast.success("Pedido enviado! Aguarde nosso contato pelo WhatsApp.");
 
       clear();

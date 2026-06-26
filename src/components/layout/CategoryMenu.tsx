@@ -1,8 +1,9 @@
-import { CATEGORIES } from "@/data/categories";
+import { useCategories } from "@/lib/categories-store";
 import { useSearch } from "@/lib/search-store";
 import { cn } from "@/lib/utils";
 
 export function CategoryMenu() {
+  const CATEGORIES = useCategories();
   const { category, setCategory } = useSearch();
 
   const select = (slug: string) => {

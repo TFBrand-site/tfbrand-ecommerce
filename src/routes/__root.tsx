@@ -2,6 +2,7 @@ import { HeadContent, Outlet, Scripts, createRootRoute } from "@tanstack/react-r
 import * as React from "react";
 import { CartProvider } from "@/lib/bag-store";
 import { SearchProvider } from "@/lib/search-store";
+import { CategoriesProvider } from "@/lib/categories-store";
 import { ScrollToTopButton } from "@/components/common/ScrollToTopButton";
 import { GA_MEASUREMENT_ID } from "@/lib/analytics";
 import { Toaster } from "sonner";
@@ -44,10 +45,12 @@ function RootComponent() {
       </head>
       <body>
         <SearchProvider>
-          <CartProvider>
-            <Outlet />
-            <ScrollToTopButton />
-          </CartProvider>
+          <CategoriesProvider>
+            <CartProvider>
+              <Outlet />
+              <ScrollToTopButton />
+            </CartProvider>
+          </CategoriesProvider>
         </SearchProvider>
         <Toaster position="top-right" richColors />
         <Analytics />

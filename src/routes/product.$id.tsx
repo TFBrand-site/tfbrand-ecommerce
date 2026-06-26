@@ -16,7 +16,7 @@ import { getPublicProductById, getPublicProductsCardData } from "@/lib/services/
 import { useCart } from "@/lib/bag-store";
 import { whatsappLink, STORE_NAME } from "@/lib/config";
 import { WhatsAppIcon } from "@/components/ui/whatsapp-icon";
-import { CATEGORIES } from "@/data/categories";
+import { useCategories } from "@/lib/categories-store";
 import { useSearch } from "@/lib/search-store";
 import { ProductCard } from "@/components/product/ProductCard";
 import { getOptimizedImageUrl } from "@/lib/utils";
@@ -173,26 +173,34 @@ const CATEGORY_DETAILS: Record<string, ProductDetails> = {
 function ProductPage() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
-  const { setCategory } = useSearch();
+  const CATEGORIES = useCategories();
   const { product, relacionados } = Route.useLoaderData();
 
   const [selectedSize, setSelectedSize] = useState<string>("");
 
-  // Variação e Imagem Principal
   const hasMultipleVariations = (product?.variacoes?.length || 0) > 1;
-  const defaultVariation = product?.variacoes?.[0] || null;
-  const [selectedVariation, setSelectedVariation] = useState<typeof defaultVariation | null>(
-    defaultVariation,
-  );
-  const [selectedImage, setSelectedImage] = useState<string>(
-    defaultVariation?.imagens?.[0] || product?.imagem || "",
-  );
+  const defaultVariation = null;
+  const [selectedVariation, setSelectedVariation] = useState<any | null>(null);
+  const [selectedImage, setSelectedImage] = useState<string>(product?.imagem || "");
 
-  const [qty, setQty] = useState<number>(1);
+
   const [popoverOpenId, setPopoverOpenId] = useState<string | null>(null);
+  const [qty, setQty] = useState(1);
+  const [showStickyBar, setShowStickyBar] = useState(false);
+
+  // Calcula o estoque máximo
+  const maxStock =
+    selectedSize && selectedVariation?.estoquePorTamanho
+      ? (selectedVariation.estoquePorTamanho[selectedSize] ?? 999)
+      : 999;
+
+  useEffect(() => {
+    if (qty > maxStock && maxStock > 0) {
+      setQty(maxStock);
+    }
+  }, [maxStock, qty]);
 
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
-  const [showStickyBar, setShowStickyBar] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -244,7 +252,7 @@ function ProductPage() {
   const details = CATEGORY_DETAILS[product.categoria] ?? CATEGORY_DETAILS.vestidos;
 
   const handleAddToCartClick = (e: React.MouseEvent, id: string) => {
-    if (hasMultipleVariations && !selectedVariation) {
+    if (product?.variacoes && product.variacoes.length > 0 && !selectedVariation) {
       e.preventDefault();
       toast.error("Selecione uma cor", {
         description: "Por favor, escolha uma cor antes de adicionar à sacola.",
@@ -298,7 +306,13 @@ function ProductPage() {
   const handleWhatsAppInquiry = () => {
     const colorText = selectedVariation ? `, cor ${selectedVariation.cor}` : "";
     const text = `Olá ${STORE_NAME}! Gostaria de tirar dúvidas sobre o produto: ${product.nome} (Ref: ${product.referencia})${colorText}, tamanho ${selectedSize}.`;
-    window.open(whatsappLink(text), "_blank");
+    const link = whatsappLink(text);
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    if (isMobile) {
+      window.location.href = link;
+    } else {
+      window.open(link, "_blank");
+    }
   };
 
   const availableSizes =
@@ -624,7 +638,9 @@ function ProductPage() {
                 <div className="text-sm mb-2">
                   <span className="text-muted-foreground">
                     Cor:{" "}
-                    <span className="font-semibold text-foreground">{selectedVariation?.cor}</span>
+                    <span className="font-semibold text-foreground">
+                      {selectedVariation?.cor || "Nenhuma selecionada"}
+                    </span>
                   </span>
                 </div>
                 <div className="flex gap-2">
@@ -671,8 +687,9 @@ function ProductPage() {
                 </button>
                 <span className="w-8 text-center text-sm font-medium text-foreground">{qty}</span>
                 <button
-                  onClick={() => setQty((prev) => prev + 1)}
-                  className="flex h-full w-10 items-center justify-center text-muted-foreground hover:text-foreground transition cursor-pointer"
+                  onClick={() => setQty((prev) => (prev < maxStock ? prev + 1 : prev))}
+                  className="flex h-full w-10 items-center justify-center text-muted-foreground hover:text-foreground transition cursor-pointer disabled:opacity-50"
+                  disabled={qty >= maxStock}
                 >
                   <Plus className="h-3 w-3" />
                 </button>

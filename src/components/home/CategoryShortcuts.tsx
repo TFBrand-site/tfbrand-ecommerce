@@ -1,4 +1,4 @@
-import { CATEGORIES } from "@/data/categories";
+import { useCategories } from "@/lib/categories-store";
 import { useSearch } from "@/lib/search-store";
 
 const icons: Record<string, string> = {
@@ -19,6 +19,7 @@ const icons: Record<string, string> = {
 };
 
 export function CategoryShortcuts() {
+  const CATEGORIES = useCategories();
   const { setCategory } = useSearch();
   return (
     <section className="mx-auto max-w-7xl px-4 py-6 sm:py-10">

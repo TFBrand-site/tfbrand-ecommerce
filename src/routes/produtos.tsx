@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useMemo, useState, useEffect } from "react";
 import { getPublicProductsCardData } from "@/lib/services/products.service";
 import { searchProducts } from "@/lib/services/search.service";
-import { CATEGORIES } from "@/data/categories";
+import { useCategories } from "@/lib/categories-store";
 import { ProductGrid } from "@/components/product/ProductGrid";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
@@ -89,6 +89,7 @@ const FAIXAS_PRECO = [
 ];
 
 function ProdutosPage() {
+  const CATEGORIES = useCategories();
   const { initialProducts } = Route.useLoaderData();
   const { categoria, busca, filtro, ordenacao, tamanho, cor, preco } = Route.useSearch();
   const navigate = useNavigate({ from: Route.id });

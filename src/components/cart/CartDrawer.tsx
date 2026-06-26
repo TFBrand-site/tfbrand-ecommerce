@@ -77,8 +77,23 @@ export function CartDrawer() {
                               {qty}
                             </span>
                             <button
-                              onClick={() => setQty(cartItemId, qty + 1)}
-                              className="flex h-8 w-8 sm:h-7 sm:w-7 items-center justify-center rounded-r-full hover:bg-zinc-100 transition-colors cursor-pointer"
+                              onClick={() => {
+                                const variation = product.variacoes?.find((v) => v.cor === selectedColor);
+                                const maxStock = selectedSize && variation?.estoquePorTamanho
+                                  ? variation.estoquePorTamanho[selectedSize] ?? 999
+                                  : 999;
+                                if (qty < maxStock) {
+                                  setQty(cartItemId, qty + 1);
+                                }
+                              }}
+                              className="flex h-8 w-8 sm:h-7 sm:w-7 items-center justify-center rounded-r-full hover:bg-zinc-100 disabled:opacity-40 transition-colors cursor-pointer"
+                              disabled={(() => {
+                                const variation = product.variacoes?.find((v) => v.cor === selectedColor);
+                                const maxStock = selectedSize && variation?.estoquePorTamanho
+                                  ? variation.estoquePorTamanho[selectedSize] ?? 999
+                                  : 999;
+                                return qty >= maxStock;
+                              })()}
                               aria-label="Aumentar"
                             >
                               <Plus className="h-4 w-4 sm:h-3.5 sm:w-3.5 text-zinc-700" />

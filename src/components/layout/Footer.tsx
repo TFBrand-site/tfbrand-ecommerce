@@ -8,9 +8,10 @@ import {
   whatsappLink,
 } from "@/lib/config";
 import { WhatsAppIcon } from "@/components/ui/whatsapp-icon";
-import { CATEGORIES } from "@/data/categories";
+import { useCategories } from "@/lib/categories-store";
 
 export function Footer() {
+  const CATEGORIES = useCategories();
   const formattedPhone = WHATSAPP_NUMBER.replace(
     /^(\d{2})(\d{2})(\d{5})(\d{4})$/,
     "+$1 ($2) $3-$4",

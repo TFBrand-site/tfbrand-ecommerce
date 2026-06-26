@@ -306,21 +306,22 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
           <TabsList className="grid w-full sm:w-[500px] grid-cols-3 bg-zinc-200/50">
             <TabsTrigger
               value="basics"
-              className="data-[state=active]:bg-white data-[state=active]:text-[#D91672] data-[state=active]:shadow-sm"
+              className="data-[state=active]:bg-white data-[state=active]:text-[#D91672] data-[state=active]:shadow-sm text-xs sm:text-sm px-1 sm:px-3"
             >
               <FileText className="h-4 w-4 mr-2 hidden sm:block" />
-              Informações Básicas
+              <span className="hidden sm:inline">Informações Básicas</span>
+              <span className="sm:hidden">Info Básicas</span>
             </TabsTrigger>
             <TabsTrigger
               value="variations"
-              className="data-[state=active]:bg-white data-[state=active]:text-[#D91672] data-[state=active]:shadow-sm"
+              className="data-[state=active]:bg-white data-[state=active]:text-[#D91672] data-[state=active]:shadow-sm text-xs sm:text-sm px-1 sm:px-3"
             >
               <Palette className="h-4 w-4 mr-2 hidden sm:block" />
               Variações
             </TabsTrigger>
             <TabsTrigger
               value="sizes"
-              className="data-[state=active]:bg-white data-[state=active]:text-[#D91672] data-[state=active]:shadow-sm"
+              className="data-[state=active]:bg-white data-[state=active]:text-[#D91672] data-[state=active]:shadow-sm text-xs sm:text-sm px-1 sm:px-3"
             >
               <Ruler className="h-4 w-4 mr-2 hidden sm:block" />
               Estoque

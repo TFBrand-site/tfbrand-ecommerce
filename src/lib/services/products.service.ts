@@ -33,6 +33,7 @@ export type LegacyProduct = {
     thumb: string;
     imagens: string[];
     tamanhos: string[];
+    estoquePorTamanho?: Record<string, number>;
   }[];
   precoPromocional?: number;
   composicao?: string;
@@ -63,17 +64,13 @@ async function applyDynamicBadges(
     console.error("Erro ao carregar mais vendidos via RPC:", err);
   }
 
-  // Fallback para teste: se não houver dados de analytics, pega os 10 primeiros como mais vendidos
-  if (top10BestsellerIds.size === 0 && products.length > 0) {
-    const fallbackIds = products.slice(0, 10).map((p) => p.id);
-    top10BestsellerIds = new Set(fallbackIds);
-  }
+  // Removido o fallback que forçava os 10 primeiros como mais vendidos mesmo sem vendas
 
   // 3. Aplica nas propriedades
   return products.map((p) => ({
     ...p,
     is_featured: top20NewestIds.has(p.id),
-    is_bestseller: top10BestsellerIds.has(p.id),
+    is_bestseller: p.is_bestseller || top10BestsellerIds.has(p.id),
   }));
 }
 
@@ -109,7 +106,7 @@ const mapSupabaseToLegacy = (row: unknown): LegacyProduct => {
     preco: Number(data.price),
     precoPromocional: data.promotional_price ? Number(data.promotional_price) : undefined,
     imagem: mainImage,
-    destaque: (data.is_featured as boolean) || false,
+    destaque: (data.is_new as boolean) || false,
     maisVendido: (data.is_bestseller as boolean) || false,
     tamanhos:
       vars.length > 0 && vars[0].sizes
@@ -136,6 +133,11 @@ const mapSupabaseToLegacy = (row: unknown): LegacyProduct => {
             .map((i) => i.url)
         : [],
       tamanhos: v.sizes ? v.sizes.filter((s) => s.is_available).map((s) => s.size) : [],
+      estoquePorTamanho: v.sizes
+        ? Object.fromEntries(
+            v.sizes.filter((s) => s.is_available).map((s) => [s.size, s.stock ?? 999]),
+          )
+        : {},
     })),
   };
 };
