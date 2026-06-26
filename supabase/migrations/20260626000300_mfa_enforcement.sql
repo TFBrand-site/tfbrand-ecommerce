@@ -71,14 +71,18 @@ DROP POLICY IF EXISTS "Admins upload" ON storage.objects;
 DROP POLICY IF EXISTS "Admins delete" ON storage.objects;
 
 -- Apenas admins podem listar/gerenciar as imagens do bucket (exige MFA)
+DROP POLICY IF EXISTS "Admins list and view images" ON storage.objects;
 CREATE POLICY "Admins list and view images" ON storage.objects 
   FOR SELECT USING ( bucket_id = 'product-images' AND auth.role() = 'authenticated' AND public.is_editor_or_admin() AND public.has_verified_mfa() );
 
+DROP POLICY IF EXISTS "Admins upload images" ON storage.objects;
 CREATE POLICY "Admins upload images" ON storage.objects 
   FOR INSERT WITH CHECK ( bucket_id = 'product-images' AND auth.role() = 'authenticated' AND public.is_editor_or_admin() AND public.has_verified_mfa() );
 
+DROP POLICY IF EXISTS "Admins update images" ON storage.objects;
 CREATE POLICY "Admins update images" ON storage.objects 
   FOR UPDATE USING ( bucket_id = 'product-images' AND auth.role() = 'authenticated' AND public.is_editor_or_admin() AND public.has_verified_mfa() );
 
+DROP POLICY IF EXISTS "Admins delete images" ON storage.objects;
 CREATE POLICY "Admins delete images" ON storage.objects 
   FOR DELETE USING ( bucket_id = 'product-images' AND auth.role() = 'authenticated' AND public.is_editor_or_admin() AND public.has_verified_mfa() );

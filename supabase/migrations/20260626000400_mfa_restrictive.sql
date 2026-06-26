@@ -67,12 +67,15 @@ DROP POLICY IF EXISTS "MFA Enforcement - Storage" ON storage.objects;
 
 -- Permissive policies restritas (NÃO criamos policy de SELECT para public. A URL pública funciona independentemente para buckets públicos, 
 -- mas isso bloqueia a listagem pela API para anônimos).
+DROP POLICY IF EXISTS "Admin/Editor leitura de storage" ON storage.objects;
 CREATE POLICY "Admin/Editor leitura de storage" ON storage.objects 
   FOR SELECT TO authenticated USING ( bucket_id = 'product-images' );
 
+DROP POLICY IF EXISTS "Admin/Editor escrita de storage" ON storage.objects;
 CREATE POLICY "Admin/Editor escrita de storage" ON storage.objects 
   FOR ALL TO authenticated USING ( bucket_id = 'product-images' AND public.is_editor_or_admin() ) WITH CHECK ( bucket_id = 'product-images' AND public.is_editor_or_admin() );
 
 -- Restrictive policy for storage to enforce MFA
+DROP POLICY IF EXISTS "MFA Enforcement - Storage" ON storage.objects;
 CREATE POLICY "MFA Enforcement - Storage" ON storage.objects
   AS RESTRICTIVE TO authenticated USING (public.has_verified_mfa()) WITH CHECK (public.has_verified_mfa());

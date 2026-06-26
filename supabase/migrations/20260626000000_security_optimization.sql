@@ -286,112 +286,142 @@ CREATE POLICY "Apenas admins acessam logs de auditoria" ON public.audit_logs
   FOR SELECT TO authenticated USING (public.is_admin());
 
 -- --- RLS: categories ---
+DROP POLICY IF EXISTS "Leitura pública de categorias ativas" ON public.categories;
 CREATE POLICY "Leitura pública de categorias ativas" ON public.categories
   FOR SELECT USING (active = true OR public.is_editor_or_admin());
 
+DROP POLICY IF EXISTS "Escrita de categorias para admin/editor" ON public.categories;
 CREATE POLICY "Escrita de categorias para admin/editor" ON public.categories
   FOR INSERT TO authenticated WITH CHECK (public.is_editor_or_admin());
 
+DROP POLICY IF EXISTS "Update de categorias para admin/editor" ON public.categories;
 CREATE POLICY "Update de categorias para admin/editor" ON public.categories
   FOR UPDATE TO authenticated USING (public.is_editor_or_admin()) WITH CHECK (public.is_editor_or_admin());
 
+DROP POLICY IF EXISTS "Exclusão de categorias apenas para admin" ON public.categories;
 CREATE POLICY "Exclusão de categorias apenas para admin" ON public.categories
   FOR DELETE TO authenticated USING (public.is_admin());
 
 -- --- RLS: products ---
+DROP POLICY IF EXISTS "Leitura pública de produtos publicados" ON public.products;
 CREATE POLICY "Leitura pública de produtos publicados" ON public.products
   FOR SELECT USING (status = 'published' OR public.is_editor_or_admin());
 
+DROP POLICY IF EXISTS "Escrita de produtos para admin/editor" ON public.products;
 CREATE POLICY "Escrita de produtos para admin/editor" ON public.products
   FOR INSERT TO authenticated WITH CHECK (public.is_editor_or_admin());
 
+DROP POLICY IF EXISTS "Update de produtos para admin/editor" ON public.products;
 CREATE POLICY "Update de produtos para admin/editor" ON public.products
   FOR UPDATE TO authenticated USING (public.is_editor_or_admin()) WITH CHECK (public.is_editor_or_admin());
 
+DROP POLICY IF EXISTS "Exclusão de produtos apenas para admin" ON public.products;
 CREATE POLICY "Exclusão de produtos apenas para admin" ON public.products
   FOR DELETE TO authenticated USING (public.is_admin());
 
 -- --- RLS: product_variations ---
+DROP POLICY IF EXISTS "Leitura pública de variacoes de produtos publicados" ON public.product_variations;
 CREATE POLICY "Leitura pública de variacoes de produtos publicados" ON public.product_variations
   FOR SELECT USING (
     (active = true AND EXISTS (SELECT 1 FROM public.products WHERE id = product_id AND status = 'published'))
     OR public.is_editor_or_admin()
   );
 
+DROP POLICY IF EXISTS "Escrita de variacoes para admin/editor" ON public.product_variations;
 CREATE POLICY "Escrita de variacoes para admin/editor" ON public.product_variations
   FOR INSERT TO authenticated WITH CHECK (public.is_editor_or_admin());
 
+DROP POLICY IF EXISTS "Update de variacoes para admin/editor" ON public.product_variations;
 CREATE POLICY "Update de variacoes para admin/editor" ON public.product_variations
   FOR UPDATE TO authenticated USING (public.is_editor_or_admin()) WITH CHECK (public.is_editor_or_admin());
 
+DROP POLICY IF EXISTS "Exclusão de variacoes apenas para admin" ON public.product_variations;
 CREATE POLICY "Exclusão de variacoes apenas para admin" ON public.product_variations
   FOR DELETE TO authenticated USING (public.is_admin());
 
 -- --- RLS: product_images ---
+DROP POLICY IF EXISTS "Leitura pública de imagens de produtos publicados" ON public.product_images;
 CREATE POLICY "Leitura pública de imagens de produtos publicados" ON public.product_images
   FOR SELECT USING (
     EXISTS (SELECT 1 FROM public.products WHERE id = product_id AND status = 'published')
     OR public.is_editor_or_admin()
   );
 
+DROP POLICY IF EXISTS "Escrita de imagens para admin/editor" ON public.product_images;
 CREATE POLICY "Escrita de imagens para admin/editor" ON public.product_images
   FOR INSERT TO authenticated WITH CHECK (public.is_editor_or_admin());
 
+DROP POLICY IF EXISTS "Update de imagens para admin/editor" ON public.product_images;
 CREATE POLICY "Update de imagens para admin/editor" ON public.product_images
   FOR UPDATE TO authenticated USING (public.is_editor_or_admin()) WITH CHECK (public.is_editor_or_admin());
 
+DROP POLICY IF EXISTS "Exclusão de imagens apenas para admin" ON public.product_images;
 CREATE POLICY "Exclusão de imagens apenas para admin" ON public.product_images
   FOR DELETE TO authenticated USING (public.is_admin());
 
 -- --- RLS: product_sizes ---
+DROP POLICY IF EXISTS "Leitura pública de tamanhos de produtos publicados" ON public.product_sizes;
 CREATE POLICY "Leitura pública de tamanhos de produtos publicados" ON public.product_sizes
   FOR SELECT USING (
     (is_available = true AND EXISTS (SELECT 1 FROM public.products WHERE id = product_id AND status = 'published'))
     OR public.is_editor_or_admin()
   );
 
+DROP POLICY IF EXISTS "Escrita de tamanhos para admin/editor" ON public.product_sizes;
 CREATE POLICY "Escrita de tamanhos para admin/editor" ON public.product_sizes
   FOR INSERT TO authenticated WITH CHECK (public.is_editor_or_admin());
 
+DROP POLICY IF EXISTS "Update de tamanhos para admin/editor" ON public.product_sizes;
 CREATE POLICY "Update de tamanhos para admin/editor" ON public.product_sizes
   FOR UPDATE TO authenticated USING (public.is_editor_or_admin()) WITH CHECK (public.is_editor_or_admin());
 
+DROP POLICY IF EXISTS "Exclusão de tamanhos apenas para admin" ON public.product_sizes;
 CREATE POLICY "Exclusão de tamanhos apenas para admin" ON public.product_sizes
   FOR DELETE TO authenticated USING (public.is_admin());
 
 -- --- RLS: size_guides ---
+DROP POLICY IF EXISTS "Leitura pública de medidas de produtos publicados" ON public.size_guides;
 CREATE POLICY "Leitura pública de medidas de produtos publicados" ON public.size_guides
   FOR SELECT USING (
     EXISTS (SELECT 1 FROM public.products WHERE id = product_id AND status = 'published')
     OR public.is_editor_or_admin()
   );
 
+DROP POLICY IF EXISTS "Escrita de medidas para admin/editor" ON public.size_guides;
 CREATE POLICY "Escrita de medidas para admin/editor" ON public.size_guides
   FOR INSERT TO authenticated WITH CHECK (public.is_editor_or_admin());
 
+DROP POLICY IF EXISTS "Update de medidas para admin/editor" ON public.size_guides;
 CREATE POLICY "Update de medidas para admin/editor" ON public.size_guides
   FOR UPDATE TO authenticated USING (public.is_editor_or_admin()) WITH CHECK (public.is_editor_or_admin());
 
+DROP POLICY IF EXISTS "Exclusão de medidas apenas para admin" ON public.size_guides;
 CREATE POLICY "Exclusão de medidas apenas para admin" ON public.size_guides
   FOR DELETE TO authenticated USING (public.is_admin());
 
 -- --- RLS: store_settings ---
+DROP POLICY IF EXISTS "Leitura pública de configurações da loja" ON public.store_settings;
 CREATE POLICY "Leitura pública de configurações da loja" ON public.store_settings
   FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS "Escrita de configurações apenas para admin" ON public.store_settings;
 CREATE POLICY "Escrita de configurações apenas para admin" ON public.store_settings
   FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
 
 -- --- RLS: leads ---
+DROP POLICY IF EXISTS "Inserção pública de leads de compra" ON public.leads;
 CREATE POLICY "Inserção pública de leads de compra" ON public.leads
   FOR INSERT WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Acesso completo a leads apenas para admin" ON public.leads;
 CREATE POLICY "Acesso completo a leads apenas para admin" ON public.leads
   FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
 
 -- --- RLS: analytics_events ---
+DROP POLICY IF EXISTS "Inserção pública de eventos de métrica" ON public.analytics_events;
 CREATE POLICY "Inserção pública de eventos de métrica" ON public.analytics_events
   FOR INSERT WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Acesso completo a eventos apenas para admin" ON public.analytics_events;
 CREATE POLICY "Acesso completo a eventos apenas para admin" ON public.analytics_events
   FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
