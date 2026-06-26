@@ -5,6 +5,7 @@ import { formatPrice } from "@/data/products";
 import { whatsappLink } from "@/lib/config";
 import { toast } from "sonner";
 import { createLead } from "@/lib/services/leads.service";
+import { supabase } from "@/lib/supabase";
 import { trackEvent } from "@/lib/analytics";
 import {
   ShoppingBag,
@@ -176,35 +177,49 @@ export function CheckoutModal({ open, onClose }: { open: boolean; onClose: () =>
   const submit = async () => {
     setIsSubmitting(true);
     try {
-      const leadItems = items.map(({ product, qty, selectedSize, selectedColor }) => ({
-        id: product.id,
-        name: product.nome,
-        sku: product.referencia,
-        price: product.preco,
+      const finalItems = items.map(({ product, qty, selectedSize, selectedColor }) => ({
+        product_id: product.id,
+        color_slug: product.variacoes?.find((v) => v.cor === selectedColor)?.slug || "unica",
+        size: selectedSize || "Único",
         quantity: qty,
-        size: selectedSize,
-        color: selectedColor,
-        image: (product as any).image_url || (product as any).imagem,
       }));
 
-      await createLead({
-        customer_name: nome,
-        customer_phone: telefone,
-        items: leadItems,
-        subtotal,
-        status: "iniciado",
-        device_info: navigator.userAgent,
-        origin: window.location.pathname,
-      });
+      let rpcResult: any;
+      try {
+        const { data, error } = await supabase.rpc("create_order_lead_secure", {
+          p_customer_name: nome,
+          p_customer_phone: telefone,
+          p_items: finalItems,
+          p_device_info: navigator.userAgent,
+          p_origin: window.location.pathname,
+          p_obs: obs || "",
+        });
 
-      trackEvent("whatsapp_checkout");
+        if (error) throw error;
+        rpcResult = data;
+        trackEvent("whatsapp_checkout");
+      } catch (supaErr: any) {
+        console.warn("Falha ao salvar lead no Supabase, usando fallback local...", supaErr);
+        rpcResult = {
+          subtotal: subtotal,
+          items: items.map(({ product, qty, selectedSize, selectedColor }) => ({
+            name: product.nome,
+            color: selectedColor || "Única",
+            size: selectedSize || "Único",
+            quantity: qty,
+            price: product.precoPromocional ?? product.preco,
+          })),
+        };
+      }
 
-      const itemLines = items.map(({ product, qty, selectedSize, selectedColor }) => {
-        const parts = [product.nome];
-        if (selectedColor) parts.push(`Cor: ${selectedColor}`);
-        if (selectedSize) parts.push(`Tam: ${selectedSize}`);
-        const unitPrice = product.precoPromocional ?? product.preco;
-        parts.push(`${qty}x ${formatPrice(unitPrice)} = ${formatPrice(unitPrice * qty)}`);
+      const itemLines = rpcResult.items.map((item: any) => {
+        const parts = [item.name];
+        if (item.color) parts.push(`Cor: ${item.color}`);
+        if (item.size) parts.push(`Tam: ${item.size}`);
+        const itemPrice = Number(item.price);
+        parts.push(
+          `${item.quantity}x ${formatPrice(itemPrice)} = ${formatPrice(itemPrice * item.quantity)}`,
+        );
         return `  • ${parts.join(" — ")}`;
       });
 
@@ -226,8 +241,8 @@ export function CheckoutModal({ open, onClose }: { open: boolean; onClose: () =>
         ...itemLines,
         ``,
         envio === "Entrega"
-          ? `💰 *Subtotal: ${formatPrice(subtotal)} + Entrega*`
-          : `💰 *Total: ${formatPrice(subtotal)}*`,
+          ? `💰 *Subtotal: ${formatPrice(rpcResult.subtotal)} + Entrega*`
+          : `💰 *Total: ${formatPrice(rpcResult.subtotal)}*`,
         ``,
         `_Pedido gerado pelo site TFBrand_`,
       ]

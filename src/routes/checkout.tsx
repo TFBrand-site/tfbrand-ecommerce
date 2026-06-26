@@ -6,6 +6,7 @@ import { formatPrice } from "@/data/products";
 import { whatsappLink } from "@/lib/config";
 import { toast } from "sonner";
 import { createLead } from "@/lib/services/leads.service";
+import { supabase } from "@/lib/supabase";
 import { trackEvent } from "@/lib/analytics";
 import {
   ShoppingBag,
@@ -191,43 +192,54 @@ function CheckoutPage() {
     const newWindow = window.open("about:blank", "_blank");
 
     try {
-      const leadItems = items.map(({ product, qty, selectedSize, selectedColor }) => ({
-        id: product.id,
-        name: product.nome,
-        sku: product.referencia,
-        price: product.precoPromocional ?? product.preco,
+      const finalItems = items.map(({ product, qty, selectedSize, selectedColor }) => ({
+        product_id: product.id,
+        color_slug: product.variacoes?.find((v) => v.cor === selectedColor)?.slug || "unica",
+        size: selectedSize || "Único",
         quantity: qty,
-        size: selectedSize,
-        color: selectedColor,
-        image: (product as any).image_url || (product as any).imagem,
       }));
 
-      // Tenta salvar no Supabase, mas NÃO cancela o WhatsApp se falhar
+      // Chamada da RPC segura
+      let rpcResult: any;
       try {
-        await createLead({
-          customer_name: nome,
-          customer_phone: telefone,
-          items: leadItems,
-          subtotal,
-          status: "iniciado",
-          device_info: navigator.userAgent,
-          origin: window.location.pathname,
+        const { data, error } = await supabase.rpc("create_order_lead_secure", {
+          p_customer_name: nome,
+          p_customer_phone: telefone,
+          p_items: finalItems,
+          p_device_info: navigator.userAgent,
+          p_origin: window.location.pathname,
+          p_obs: obs || "",
         });
 
+        if (error) throw error;
+        rpcResult = data;
         trackEvent("whatsapp_checkout");
-      } catch (supaErr) {
-        console.warn("Falha ao salvar no banco de dados, prosseguindo com o WhatsApp...", supaErr);
+      } catch (supaErr: any) {
+        console.warn(
+          "Falha ao salvar no banco de dados, prosseguindo com fallback local...",
+          supaErr,
+        );
+        rpcResult = {
+          subtotal: subtotal,
+          items: items.map(({ product, qty, selectedSize, selectedColor }) => ({
+            name: product.nome,
+            color: selectedColor || "Única",
+            size: selectedSize || "Único",
+            quantity: qty,
+            price: product.precoPromocional ?? product.preco,
+          })),
+        };
       }
 
-      const itemLines = items.map(({ product, qty, selectedSize, selectedColor }) => {
+      const itemLines = rpcResult.items.map((item: any) => {
         const details = [
-          selectedColor ? `Cor: ${selectedColor}` : null,
-          selectedSize ? `Tam: ${selectedSize}` : null,
+          item.color ? `Cor: ${item.color}` : null,
+          item.size ? `Tam: ${item.size}` : null,
         ]
           .filter(Boolean)
           .join(" | ");
-        const unitPrice = product.precoPromocional ?? product.preco;
-        return `${qty}x ${product.nome}\n   ${details ? `(${details})\n   ` : ""}Valor: ${formatPrice(unitPrice * qty)}`;
+        const itemPrice = Number(item.price);
+        return `${item.quantity}x ${item.name}\n   ${details ? `(${details})\n   ` : ""}Valor: ${formatPrice(itemPrice * item.quantity)}`;
       });
 
       const now = new Date();
@@ -259,11 +271,11 @@ function CheckoutPage() {
         ``,
         `[ VALORES ]`,
         envio === "Entrega"
-          ? `SUBTOTAL: ${formatPrice(subtotal)} + Entrega`
-          : `SUBTOTAL: ${formatPrice(subtotal)}`,
+          ? `SUBTOTAL: ${formatPrice(rpcResult.subtotal)} + Entrega`
+          : `SUBTOTAL: ${formatPrice(rpcResult.subtotal)}`,
         envio === "Entrega" ? null : `FRETE: ${envio === "Retirar em loja" ? "Grátis" : envio}`,
         `--------------------------------`,
-        envio === "Entrega" ? null : `TOTAL: ${formatPrice(subtotal)}`,
+        envio === "Entrega" ? null : `TOTAL: ${formatPrice(rpcResult.subtotal)}`,
         `================================`,
         `DATA: ${dataHora}`,
         `================================`,

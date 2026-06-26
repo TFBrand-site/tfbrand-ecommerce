@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { formatCurrency } from "@/lib/utils";
+import { useAdminRole } from "@/hooks/useAdminRole";
 import {
   Select,
   SelectContent,
@@ -47,8 +48,13 @@ function AdminProdutosList() {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const { role } = useAdminRole();
 
   const handleDelete = async (id: string, name: string) => {
+    if (role !== "admin") {
+      toast.error("Acesso negado: apenas administradores podem excluir produtos definitivamente.");
+      return;
+    }
     if (confirm(`Tem certeza que deseja excluir permanentemente o produto "${name}"?`)) {
       try {
         setIsDeleting(id);
@@ -342,16 +348,18 @@ function AdminProdutosList() {
                         >
                           <Edit className="h-4 w-4" />
                         </Link>
-                        <button
-                          onClick={() => handleDelete(product.id, product.name)}
-                          disabled={isDeleting === product.id}
-                          className="p-2 text-zinc-400 hover:text-red-600 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                          title="Excluir"
-                        >
-                          <Trash
-                            className={`h-4 w-4 ${isDeleting === product.id ? "animate-pulse text-red-600" : ""}`}
-                          />
-                        </button>
+                        {role === "admin" && (
+                          <button
+                            onClick={() => handleDelete(product.id, product.name)}
+                            disabled={isDeleting === product.id}
+                            className="p-2 text-zinc-400 hover:text-red-600 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Excluir"
+                          >
+                            <Trash
+                              className={`h-4 w-4 ${isDeleting === product.id ? "animate-pulse text-red-600" : ""}`}
+                            />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -531,16 +539,18 @@ function AdminProdutosList() {
                   >
                     <Edit className="h-4 w-4" />
                   </Link>
-                  <button
-                    onClick={() => handleDelete(product.id, product.name)}
-                    disabled={isDeleting === product.id}
-                    className="p-2 border border-zinc-200 rounded-lg text-zinc-500 hover:text-red-600 hover:bg-red-50/50 transition-all cursor-pointer flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-                    title="Excluir"
-                  >
-                    <Trash
-                      className={`h-4 w-4 ${isDeleting === product.id ? "animate-pulse text-red-600" : ""}`}
-                    />
-                  </button>
+                  {role === "admin" && (
+                    <button
+                      onClick={() => handleDelete(product.id, product.name)}
+                      disabled={isDeleting === product.id}
+                      className="p-2 border border-zinc-200 rounded-lg text-zinc-500 hover:text-red-600 hover:bg-red-50/50 transition-all cursor-pointer flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Excluir"
+                    >
+                      <Trash
+                        className={`h-4 w-4 ${isDeleting === product.id ? "animate-pulse text-red-600" : ""}`}
+                      />
+                    </button>
+                  )}
                 </div>
               </div>
             );

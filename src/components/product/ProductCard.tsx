@@ -1,12 +1,14 @@
 import { Link } from "@tanstack/react-router";
 import { type Product, formatPrice } from "@/data/products";
 import { Heart } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, getOptimizedImageUrl } from "@/lib/utils";
 
 export function ProductCard({ product }: { product: Product }) {
   const cat = product.categoria.replace("-", " ");
-  const mainImage = product.imagem;
-  const secondaryImage = product.variacoes?.[0]?.imagens?.[1] || null;
+  const mainImage = getOptimizedImageUrl(product.imagem, 400);
+  const secondaryImage = product.variacoes?.[0]?.imagens?.[1]
+    ? getOptimizedImageUrl(product.variacoes[0].imagens[1], 400)
+    : null;
 
   return (
     <Link

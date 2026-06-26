@@ -9,7 +9,7 @@ const DEFAULT_SETTINGS: StoreSettings = {
   store_name: "TFBrand",
   whatsapp_number: import.meta.env.VITE_WHATSAPP_NUMBER || "5511999999999",
   instagram_url: import.meta.env.VITE_INSTAGRAM_URL || "https://instagram.com/tfbrand",
-  tech_email: "tfbrandteck@gmail.com",
+  tech_email: "tfbrand.tech@admin.com",
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
 };
@@ -34,6 +34,10 @@ export const getStoreSettings = async (): Promise<StoreSettings> => {
     }
     console.error("Erro ao carregar configurações:", error);
     return DEFAULT_SETTINGS;
+  }
+
+  if (data && !data.tech_email) {
+    data.tech_email = "tfbrand.tech@admin.com";
   }
 
   return data;

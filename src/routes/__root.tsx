@@ -4,6 +4,8 @@ import { CartProvider } from "@/lib/bag-store";
 import { SearchProvider } from "@/lib/search-store";
 import { ScrollToTopButton } from "@/components/common/ScrollToTopButton";
 import { GA_MEASUREMENT_ID } from "@/lib/analytics";
+import { Toaster } from "sonner";
+import { Analytics } from "@vercel/analytics/react";
 import "@/styles.css";
 
 export const Route = createRootRoute({
@@ -47,6 +49,8 @@ function RootComponent() {
             <ScrollToTopButton />
           </CartProvider>
         </SearchProvider>
+        <Toaster position="top-right" richColors />
+        <Analytics />
         <Scripts />
       </body>
     </html>

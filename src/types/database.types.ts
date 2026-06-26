@@ -381,12 +381,182 @@ export type Database = {
           referencedColumns: string[];
         }[];
       };
+      profiles: {
+        Row: {
+          id: string;
+          nome: string | null;
+          email: string | null;
+          role: "admin" | "editor";
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id: string;
+          nome?: string | null;
+          email?: string | null;
+          role?: "admin" | "editor";
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          nome?: string | null;
+          email?: string | null;
+          role?: "admin" | "editor";
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: {
+          foreignKeyName: string;
+          columns: string[];
+          isOneToOne?: boolean;
+          referencedRelation: string;
+          referencedColumns: string[];
+        }[];
+      };
+      audit_logs: {
+        Row: {
+          id: string;
+          admin_id: string | null;
+          action: string;
+          entity_type: string;
+          entity_id: string | null;
+          metadata: Json | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          admin_id?: string | null;
+          action: string;
+          entity_type: string;
+          entity_id?: string | null;
+          metadata?: Json | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          admin_id?: string | null;
+          action?: string;
+          entity_type?: string;
+          entity_id?: string | null;
+          metadata?: Json | null;
+          created_at?: string;
+        };
+        Relationships: {
+          foreignKeyName: string;
+          columns: string[];
+          isOneToOne?: boolean;
+          referencedRelation: string;
+          referencedColumns: string[];
+        }[];
+      };
     };
     Views: {
-      [_ in never]: never;
+      product_colors: {
+        Row: {
+          id: string;
+          product_id: string | null;
+          color_name: string;
+          color_slug: string;
+          hex_code: string | null;
+          display_order: number | null;
+          active: boolean | null;
+          created_at: string;
+        };
+        Relationships: [];
+      };
+      product_size_stock: {
+        Row: {
+          id: string;
+          product_id: string | null;
+          variation_id: string | null;
+          size: string;
+          stock: number | null;
+          is_available: boolean | null;
+          created_at: string;
+        };
+        Relationships: [];
+      };
+      product_measurements: {
+        Row: {
+          id: string;
+          product_id: string | null;
+          size_name: string;
+          numbering: string | null;
+          bust: string | null;
+          waist: string | null;
+          hip: string | null;
+          length: string | null;
+          created_at: string;
+        };
+        Relationships: [];
+      };
+      product_care: {
+        Row: {
+          id: string;
+          name: string;
+          care_instructions: Json | null;
+        };
+        Relationships: [];
+      };
+      order_leads: {
+        Row: {
+          id: string;
+          customer_name: string | null;
+          customer_phone: string | null;
+          items: Json;
+          subtotal: number;
+          status: "iniciado" | "confirmado" | "cancelado";
+          device_info: string | null;
+          origin: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Relationships: [];
+      };
+      product_metrics: {
+        Row: {
+          id: string;
+          event_type: string;
+          product_id: string | null;
+          user_agent: string | null;
+          created_at: string;
+        };
+        Relationships: [];
+      };
+      store_config: {
+        Row: {
+          id: string;
+          store_name: string | null;
+          whatsapp_number: string | null;
+          instagram_url: string | null;
+          tech_email: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Relationships: [];
+      };
     };
     Functions: {
-      [_ in never]: never;
+      create_order_lead_secure: {
+        Args: {
+          p_customer_name: string;
+          p_customer_phone: string;
+          p_items: Json;
+          p_device_info: string;
+          p_origin: string;
+          p_obs: string;
+        };
+        Returns: Json;
+      };
+      is_admin: {
+        Args: Record<PropertyKey, never>;
+        Returns: boolean;
+      };
+      is_editor_or_admin: {
+        Args: Record<PropertyKey, never>;
+        Returns: boolean;
+      };
     };
     Enums: {
       product_status: "draft" | "published" | "archived";

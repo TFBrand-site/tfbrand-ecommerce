@@ -1,7 +1,25 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import { Mail, Lock, Eye, EyeOff, ArrowLeft, ShieldCheck, Loader2 } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, ArrowLeft, Loader2 } from "lucide-react";
+
+interface TurnstileWindow extends Window {
+  turnstile?: {
+    render: (
+      container: string | HTMLElement,
+      options: {
+        sitekey: string;
+        theme?: string;
+        callback?: (token: string) => void;
+        "error-callback"?: () => void;
+        "expired-callback"?: () => void;
+      },
+    ) => string;
+    remove: () => void;
+    reset: () => void;
+  };
+  onloadTurnstileCallback?: () => void;
+}
 
 export const Route = createFileRoute("/admin/login")({
   component: AdminLogin,
@@ -13,15 +31,92 @@ function AdminLogin() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [captchaStatus, setCaptchaStatus] = useState<"verifying" | "success">("verifying");
+  const [captchaStatus, setCaptchaStatus] = useState<"verifying" | "success" | "error" | "expired">(
+    "verifying",
+  );
+  const [turnstileToken, setTurnstileToken] = useState("");
+
   const router = useRouter();
 
-  // Simulação do Cloudflare Turnstile com delay para segurança visual
+  // Carregamento do widget real do Cloudflare Turnstile
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setCaptchaStatus("success");
-    }, 1500);
-    return () => clearTimeout(timer);
+    const win = window as unknown as TurnstileWindow;
+    const renderWidget = () => {
+      const siteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY;
+      const isDev = import.meta.env.DEV;
+
+      // Se for Produção e não tiver a chave, emitimos um erro crítico e bloqueamos a tela.
+      if (!siteKey && !isDev) {
+        setError(
+          "Erro Crítico de Segurança: Turnstile não configurado. Acesso administrativo bloqueado.",
+        );
+        setCaptchaStatus("error");
+        return;
+      }
+
+      // Usa a chave configurada ou a Dummy Key em ambiente local de dev.
+      const finalSiteKey = siteKey || (isDev ? "1x00000000000000000000AA" : "");
+
+      if (win.turnstile) {
+        const container = document.getElementById("turnstile-container");
+        if (container) {
+          container.innerHTML = ""; // Limpa para evitar duplicados
+        }
+        try {
+          win.turnstile.render("#turnstile-container", {
+            sitekey: finalSiteKey,
+            theme: "light",
+            callback: (token: string) => {
+              setTurnstileToken(token);
+              setCaptchaStatus("success");
+              setError(null);
+            },
+            "error-callback": () => {
+              setCaptchaStatus("error");
+              setError("Falha na verificação do navegador. Por favor, recarregue a página.");
+            },
+            "expired-callback": () => {
+              setCaptchaStatus("expired");
+              setTurnstileToken("");
+              setError("O desafio de segurança expirou. Por favor, revalide.");
+            },
+          });
+        } catch (e) {
+          console.warn("Erro ao renderizar Turnstile:", e);
+        }
+      }
+    };
+
+    // Callback global para quando o script carregar pela primeira vez
+    win.onloadTurnstileCallback = renderWidget;
+
+    if (win.turnstile) {
+      // Se a biblioteca já está carregada no window (ex: navegação SPA anterior), renderiza imediatamente
+      renderWidget();
+    } else {
+      // Injeta o script se não estiver presente na página
+      if (!document.getElementById("turnstile-script")) {
+        const script = document.createElement("script");
+        script.id = "turnstile-script";
+        script.src =
+          "https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onloadTurnstileCallback&render=explicit";
+        script.async = true;
+        script.defer = true;
+        document.body.appendChild(script);
+      }
+    }
+
+    return () => {
+      // Limpeza ao desmontar
+      delete win.onloadTurnstileCallback;
+      try {
+        if (win.turnstile) {
+          win.turnstile.remove();
+        }
+      } catch (e) {
+        // Ignora erros ao limpar
+      }
+    };
   }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -31,15 +126,49 @@ function AdminLogin() {
     setLoading(true);
     setError(null);
 
+    const win = window as unknown as TurnstileWindow;
+
     try {
-      const { error: authError } = await supabase.auth.signInWithPassword({
+      const { data, error: authError } = await supabase.auth.signInWithPassword({
         email,
         password,
+        options: {
+          // Envia o token de captcha se configurado no Supabase
+          captchaToken: turnstileToken || undefined,
+        },
       });
 
       if (authError) throw authError;
-      router.navigate({ to: "/admin" });
+
+      if (data.user) {
+        // Verifica se a conta do usuário tem MFA (2FA) configurado e ativo
+        const { data: mfaData, error: mfaListError } = await supabase.auth.mfa.listFactors();
+        if (mfaListError) throw mfaListError;
+
+        const activeTotpFactor = mfaData?.totp?.find((f) => f.status === "verified");
+
+        if (activeTotpFactor) {
+          // Redireciona imediatamente para a rota isolada de MFA
+          router.navigate({ to: "/admin/mfa", replace: true });
+          return;
+        }
+      }
+
+      // Se não possui MFA ativo, entra direto no painel
+      router.navigate({ to: "/admin", replace: true });
     } catch (err: unknown) {
+      // Importante: resetar o widget do Turnstile após uma falha de autenticação
+      // para que um novo token seja gerado na próxima tentativa, evitando erro de duplicidade.
+      if (win.turnstile) {
+        try {
+          win.turnstile.reset();
+        } catch (resetErr) {
+          console.warn("Erro ao resetar Turnstile:", resetErr);
+        }
+      }
+      setTurnstileToken("");
+      setCaptchaStatus("verifying");
+
       if (err instanceof Error) {
         // Mensagem segura genérica para evitar enumeração de contas
         if (err.message.includes("Invalid login credentials") || err.message.includes("400")) {
@@ -55,6 +184,7 @@ function AdminLogin() {
     }
   };
 
+  // Render do formulário de login padrão (E-mail e Senha)
   return (
     <div className="flex min-h-screen items-center justify-center bg-linear-to-tr from-[#FFF2F5] via-[#FFFDFD] to-[#FDF6F8] px-4 py-12 font-sans select-none">
       <div className="w-full max-w-[420px] bg-white border border-zinc-100/80 shadow-xl shadow-pink-100/10 rounded-2xl p-6 sm:p-8 flex flex-col items-center">
@@ -135,31 +265,9 @@ function AdminLogin() {
             </label>
           </div>
 
-          {/* Cloudflare Turnstile Simulator */}
-          <div className="flex w-full items-center justify-between rounded-xl border border-zinc-200/80 bg-zinc-50/40 p-4 mt-1 mb-1 transition-all select-none">
-            {captchaStatus === "verifying" ? (
-              <div className="flex items-center gap-3">
-                <Loader2 className="h-5 w-5 text-[#D91672] animate-spin" />
-                <span className="text-xs font-semibold text-zinc-500 animate-pulse">
-                  Verificando segurança...
-                </span>
-              </div>
-            ) : (
-              <div className="flex items-center gap-3 animate-in fade-in zoom-in-95 duration-300">
-                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
-                  <ShieldCheck className="h-5 w-5" strokeWidth={2} />
-                </div>
-                <span className="text-xs font-bold text-emerald-600">Navegador verificado</span>
-              </div>
-            )}
-            <div className="flex flex-col items-end leading-none">
-              <span className="text-[9px] font-extrabold text-zinc-400 tracking-wider uppercase">
-                CLOUDFLARE
-              </span>
-              <span className="text-[8px] text-zinc-400 hover:underline cursor-pointer mt-0.5">
-                Privacidade • Ajuda
-              </span>
-            </div>
+          {/* Cloudflare Turnstile Container */}
+          <div className="flex w-full justify-center mt-1 mb-2">
+            <div id="turnstile-container" className="min-h-[65px]"></div>
           </div>
 
           {/* Submit Button */}

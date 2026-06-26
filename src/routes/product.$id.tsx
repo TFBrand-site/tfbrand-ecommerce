@@ -18,6 +18,7 @@ import { WhatsAppIcon } from "@/components/ui/whatsapp-icon";
 import { CATEGORIES } from "@/data/categories";
 import { useSearch } from "@/lib/search-store";
 import { ProductCard } from "@/components/product/ProductCard";
+import { getOptimizedImageUrl } from "@/lib/utils";
 
 import { Header } from "@/components/layout/Header";
 
@@ -364,7 +365,7 @@ function ProductPage() {
               }}
             >
               <img
-                src={selectedImage}
+                src={getOptimizedImageUrl(selectedImage, 800)}
                 alt={product.nome}
                 className="h-full w-full object-cover transition-transform duration-200 md:group-hover:scale-150"
                 style={{
@@ -392,7 +393,7 @@ function ProductPage() {
                       }`}
                     >
                       <img
-                        src={imgUrl}
+                        src={getOptimizedImageUrl(imgUrl, 120)}
                         alt={`${product.nome} foto ${idx + 1}`}
                         className="h-full w-full object-cover"
                       />
@@ -852,7 +853,7 @@ function ProductPage() {
           <div className="flex items-center justify-between rounded-2xl bg-white p-3 pr-4 shadow-[0_-8px_30px_-5px_rgba(0,0,0,0.1)] border border-border">
             <div className="flex items-center gap-4">
               <img
-                src={selectedImage}
+                src={getOptimizedImageUrl(selectedImage, 100)}
                 alt={product.nome}
                 className="h-14 w-12 rounded-lg object-cover"
               />
@@ -935,7 +936,7 @@ function ProductPage() {
                       }`}
                     >
                       <img
-                        src={imgUrl}
+                        src={getOptimizedImageUrl(imgUrl, 120)}
                         alt={`${product.nome} miniatura`}
                         className="h-full w-full object-cover"
                       />
@@ -945,7 +946,7 @@ function ProductPage() {
               )}
 
             <img
-              src={selectedImage}
+              src={getOptimizedImageUrl(selectedImage, 1200)}
               alt={product.nome}
               className="h-full w-auto max-w-full object-contain cursor-default rounded-lg shadow-2xl"
               onClick={(e) => e.stopPropagation()}
@@ -970,7 +971,7 @@ function ProductPage() {
                       }`}
                     >
                       <img
-                        src={imgUrl}
+                        src={getOptimizedImageUrl(imgUrl, 100)}
                         alt={`${product.nome} miniatura`}
                         className="h-full w-full object-cover"
                       />
