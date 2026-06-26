@@ -251,7 +251,9 @@ export function CheckoutModal({ open, onClose }: { open: boolean; onClose: () =>
         .filter((l) => l !== null)
         .join("\n");
 
-      window.open(whatsappLink(lines), "_blank");
+      const link = whatsappLink(lines);
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      window.open(link, isMobile ? "_self" : "_blank");
       toast.success("Pedido enviado! Aguarde nosso contato pelo WhatsApp.");
 
       clear();
