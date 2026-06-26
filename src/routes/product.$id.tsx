@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useMemo, useEffect } from "react";
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { ShoppingBag, Plus, Minus, ArrowLeft, X, Ruler } from "lucide-react";
@@ -11,7 +12,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { formatPrice } from "@/data/products";
-import { getPublicProducts } from "@/lib/services/products.service";
+import { getPublicProductById, getPublicProductsCardData } from "@/lib/services/products.service";
 import { useCart } from "@/lib/bag-store";
 import { whatsappLink, STORE_NAME } from "@/lib/config";
 import { WhatsAppIcon } from "@/components/ui/whatsapp-icon";
@@ -31,9 +32,13 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/product/$id")({
   loader: async ({ params }) => {
-    const products = await getPublicProducts();
-    const product = products.find((p) => p.id === params.id);
-    return { product, products };
+    const product = await getPublicProductById(params.id);
+    let relacionados: any[] = [];
+    if (product) {
+      const data = await getPublicProductsCardData(product.categoria, 5, 0);
+      relacionados = data.filter((p) => p.id !== product.id).slice(0, 4);
+    }
+    return { product, relacionados };
   },
   head: ({ loaderData }) => {
     const { product } = loaderData || {};
@@ -169,7 +174,7 @@ function ProductPage() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
   const { setCategory } = useSearch();
-  const { product, products: allProducts } = Route.useLoaderData();
+  const { product, relacionados } = Route.useLoaderData();
 
   const [selectedSize, setSelectedSize] = useState<string>("");
 
@@ -213,19 +218,6 @@ function ProductPage() {
   }, [isLightboxOpen]);
 
   const { add } = useCart();
-
-  const relacionados = useMemo(() => {
-    if (!product) return [];
-    const sameCat = allProducts.filter(
-      (p) => p.categoria === product.categoria && p.id !== product.id,
-    );
-    if (sameCat.length >= 4) return sameCat.slice(0, 4);
-
-    const others = allProducts.filter(
-      (p) => p.id !== product.id && p.categoria !== product.categoria,
-    );
-    return [...sameCat, ...others].slice(0, 4);
-  }, [product, allProducts]);
 
   if (!product) {
     return (
@@ -366,6 +358,8 @@ function ProductPage() {
             >
               <img
                 src={getOptimizedImageUrl(selectedImage, 800)}
+                srcSet={`${getOptimizedImageUrl(selectedImage, 400)} 400w, ${getOptimizedImageUrl(selectedImage, 800)} 800w, ${getOptimizedImageUrl(selectedImage, 1200)} 1200w`}
+                sizes="(max-width: 768px) 100vw, 50vw"
                 alt={product.nome}
                 className="h-full w-full object-cover transition-transform duration-200 md:group-hover:scale-150"
                 style={{

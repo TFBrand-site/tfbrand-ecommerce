@@ -45,7 +45,7 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
       : "",
   );
   const [status, setStatus] = useState<"draft" | "published" | "archived">(
-    (initialData?.status as any) || "draft",
+    (initialData?.status as any) || "published",
   );
   const [isNew, setIsNew] = useState(initialData?.is_new || false);
   const [isBestseller, setIsBestseller] = useState(initialData?.is_bestseller || false);
@@ -77,11 +77,7 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
         color_slug: "unica",
         hex_code: "#000000",
         images: [],
-        sizes: [
-          { size: "P", stock: 10, is_available: true },
-          { size: "M", stock: 10, is_available: true },
-          { size: "G", stock: 10, is_available: true },
-        ],
+        sizes: [], // Começa vazio por padrão
       },
     ],
   );
@@ -97,6 +93,24 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
       return;
     }
 
+    // Validação obrigatória de estoque
+    for (const v of variations) {
+      if (!v.sizes || v.sizes.length === 0) {
+        toast.error(
+          `Adicione pelo menos um tamanho/estoque para a variação de cor "${v.color_name}".`,
+        );
+        return;
+      }
+
+      const hasEmptySize = v.sizes.some((s: any) => !s.size || !s.size.trim());
+      if (hasEmptySize) {
+        toast.error(
+          `Existem tamanhos sem nome definidos na variação de cor "${v.color_name}". Por favor, preencha-os ou remova-os.`,
+        );
+        return;
+      }
+    }
+
     setLoading(true);
     try {
       let productId = initialData?.id;
@@ -105,10 +119,22 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
       const firstImage = variations?.[0]?.images?.[0]?.url || null;
 
       // 1. Salvar Produto
+      const finalSku = sku || `REF-${Math.floor(1000 + Math.random() * 9000)}`;
+      const baseSlug = name
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)/g, "");
+      const uniqueSuffix = Date.now().toString(36);
+
+      // Para edição, manter o slug atual; para novo produto, sempre gerar um slug único
+      const finalSlug = initialData?.slug ? initialData.slug : `${baseSlug}-${uniqueSuffix}`;
+
       const productData = {
         name: name,
-        slug: slug || name.toLowerCase().replace(/[^a-z0-9]/g, "-"),
-        sku: sku || `REF-${Math.floor(1000 + Math.random() * 9000)}`,
+        slug: finalSlug,
+        sku: finalSku,
         category_id: categoryId,
         description,
         price: parseFloat(priceStr.replace(",", ".")) || 0,
@@ -215,27 +241,43 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
     }
   };
 
-  const uploadImage = async (variationIndex: number, file: File) => {
-    if (!isSupabaseConfigured()) return toast.error("Sem Supabase configurado");
-    const fileExt = file.name.split(".").pop();
-    const fileName = `${Math.random()}.${fileExt}`;
-    const filePath = `produtos/${fileName}`;
+  const uploadToCloudinary = async (file: File): Promise<string> => {
+    const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+    const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
 
+    if (!cloudName || !uploadPreset) {
+      throw new Error(
+        "Cloudinary não configurado. Defina VITE_CLOUDINARY_CLOUD_NAME e VITE_CLOUDINARY_UPLOAD_PRESET no seu .env",
+      );
+    }
+
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("upload_preset", uploadPreset);
+
+    const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errData = await response.json();
+      throw new Error(errData.error?.message || "Erro ao enviar imagem ao Cloudinary");
+    }
+
+    const data = await response.json();
+    return data.secure_url;
+  };
+
+  const uploadImage = async (variationIndex: number, file: File) => {
     try {
       setLoading(true);
-      const { error: uploadError } = await supabase.storage
-        .from("product-images")
-        .upload(filePath, file);
-      if (uploadError) throw uploadError;
-
-      const { data: publicUrlData } = supabase.storage
-        .from("product-images")
-        .getPublicUrl(filePath);
+      const secureUrl = await uploadToCloudinary(file);
 
       const newVars = [...variations];
-      newVars[variationIndex].images.push({ url: publicUrlData.publicUrl, is_main: false } as any);
+      newVars[variationIndex].images.push({ url: secureUrl, is_main: false } as any);
       setVariations(newVars);
-      toast.success("Imagem enviada com sucesso!");
+      toast.success("Imagem enviada com sucesso para o Cloudinary!");
     } catch (error: any) {
       toast.error(error.message || "Erro no upload da imagem");
     } finally {
@@ -244,24 +286,12 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
   };
 
   const uploadCoverImage = async (file: File) => {
-    if (!isSupabaseConfigured()) return toast.error("Sem Supabase configurado");
-    const fileExt = file.name.split(".").pop();
-    const fileName = `${Math.random()}.${fileExt}`;
-    const filePath = `produtos/${fileName}`;
-
     try {
       setLoading(true);
-      const { error: uploadError } = await supabase.storage
-        .from("product-images")
-        .upload(filePath, file);
-      if (uploadError) throw uploadError;
+      const secureUrl = await uploadToCloudinary(file);
 
-      const { data: publicUrlData } = supabase.storage
-        .from("product-images")
-        .getPublicUrl(filePath);
-
-      setCoverImage({ url: publicUrlData.publicUrl, is_main: true });
-      toast.success("Capa enviada com sucesso!");
+      setCoverImage({ url: secureUrl, is_main: true });
+      toast.success("Capa enviada com sucesso para o Cloudinary!");
     } catch (error: any) {
       toast.error(error.message || "Erro no upload da capa");
     } finally {
@@ -354,9 +384,6 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
                 value={name}
                 onChange={(e) => {
                   setName(e.target.value);
-                  if (!initialData) {
-                    setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, "-"));
-                  }
                 }}
                 className="w-full p-2.5 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#D91672]/20 focus:border-[#D91672] transition-all"
                 placeholder="Ex: Jaqueta Puffer Over"

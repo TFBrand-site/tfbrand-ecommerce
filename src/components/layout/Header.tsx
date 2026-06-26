@@ -7,7 +7,8 @@ import { useSearch } from "@/lib/search-store";
 import { INSTAGRAM_URL, STORE_NAME, WHATSAPP_NUMBER, whatsappLink } from "@/lib/config";
 import { WhatsAppIcon } from "@/components/ui/whatsapp-icon";
 import { CATEGORIES } from "@/data/categories";
-import { PRODUCTS } from "@/data/products";
+import { getAutocompleteResults, type AutocompleteResponse } from "@/lib/services/search.service";
+import { getOptimizedImageUrl } from "@/lib/utils";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
 function SearchAutocomplete({
@@ -20,51 +21,93 @@ function SearchAutocomplete({
   hidden?: boolean;
 }) {
   const [show, setShow] = useState(false);
+  const [results, setResults] = useState<AutocompleteResponse | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     setShow(query.trim().length > 1 && !hidden);
   }, [query, hidden]);
 
+  useEffect(() => {
+    if (query.trim().length < 2) {
+      setResults(null);
+      return;
+    }
+
+    setIsLoading(true);
+    const timeoutId = setTimeout(async () => {
+      try {
+        const data = await getAutocompleteResults(query);
+        setResults(data);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setIsLoading(false);
+      }
+    }, 300); // Debounce de 300ms
+
+    return () => clearTimeout(timeoutId);
+  }, [query]);
+
   if (!show) return null;
 
-  const suggestions = Array.from(
-    new Set([
-      ...CATEGORIES.filter(
-        (c) => c.label.toLowerCase().includes(query.toLowerCase()) && c.slug !== "lancamentos",
-      ).map((c) => c.label),
-      ...PRODUCTS.filter(
-        (p) =>
-          p.nome.toLowerCase().includes(query.toLowerCase()) ||
-          p.categoria.toLowerCase().includes(query.toLowerCase()),
-      ).map((p) => {
-        const firstWord = p.nome.split(" ")[0];
-        if (firstWord.toLowerCase().includes(query.toLowerCase())) return firstWord;
-        if (p.categoria.toLowerCase().includes(query.toLowerCase())) {
-          return p.categoria.charAt(0).toUpperCase() + p.categoria.slice(1);
-        }
-        return p.nome;
-      }),
-    ]),
-  ).slice(0, 5);
-
-  if (suggestions.length === 0) return null;
-
   return (
-    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-zinc-200 rounded-xl shadow-lg z-50 overflow-hidden">
-      <ul className="flex flex-col py-1">
-        {suggestions.map((sug, i) => (
-          <li key={i}>
-            <button
-              type="button"
-              onClick={() => onSelect(sug)}
-              className="w-full text-left px-4 py-2.5 text-sm text-zinc-700 hover:bg-zinc-50 hover:text-black transition-colors cursor-pointer flex items-center gap-2"
-            >
-              <Search className="h-3 w-3 text-zinc-400" />
-              {sug}
-            </button>
-          </li>
-        ))}
-      </ul>
+    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-zinc-200 rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] z-50 overflow-hidden origin-top transition-all">
+      {isLoading ? (
+        <div className="p-8 text-center text-zinc-400 text-sm">Buscando...</div>
+      ) : !results || (results.suggestions.length === 0 && results.categories.length === 0) ? (
+        <div className="p-8 text-center text-zinc-500 text-sm flex flex-col items-center gap-2">
+          <Search className="h-6 w-6 text-zinc-300" />
+          <p>Nenhum resultado encontrado para "{query}"</p>
+        </div>
+      ) : (
+        <div className="flex flex-col max-h-[70vh] overflow-y-auto">
+          {/* Lado Único: Sugestões e Categorias */}
+          <div className="w-full bg-zinc-50/80 p-4 flex flex-col gap-5">
+            {results.suggestions.length > 0 && (
+              <div>
+                <h4 className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-2">
+                  Sugestões
+                </h4>
+                <ul className="flex flex-col gap-1">
+                  {results.suggestions.map((sug, i) => (
+                    <li key={i}>
+                      <button
+                        type="button"
+                        onClick={() => onSelect(sug.split(" —")[0])}
+                        className="w-full text-left px-2 py-1.5 text-sm text-zinc-700 hover:text-black hover:bg-zinc-200/60 rounded-md transition-colors flex items-center gap-2 line-clamp-1"
+                      >
+                        <Search className="h-3 w-3 shrink-0 text-zinc-400" />
+                        <span className="truncate">{sug}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {results.categories.length > 0 && (
+              <div>
+                <h4 className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-2">
+                  Categorias
+                </h4>
+                <div className="flex flex-wrap gap-1.5">
+                  {results.categories.map((cat, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => onSelect(cat.name)}
+                      className="px-2.5 py-1 text-xs font-medium bg-white border border-zinc-200 text-zinc-600 rounded-full hover:border-[#D91672] hover:text-[#D91672] shadow-sm transition-colors"
+                    >
+                      {cat.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -83,6 +126,7 @@ export function Header({ showCategories = false }: HeaderProps) {
   const location = useLocation();
   const [hideAutocomplete, setHideAutocomplete] = useState(false);
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     setHideAutocomplete(true);
@@ -179,7 +223,7 @@ export function Header({ showCategories = false }: HeaderProps) {
           ) : (
             <>
               {/* Menu Mobile */}
-              <Sheet>
+              <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
                 <SheetTrigger asChild>
                   <button
                     className="md:hidden p-1 -ml-1 text-zinc-700 hover:text-black transition-colors"
@@ -205,6 +249,7 @@ export function Header({ showCategories = false }: HeaderProps) {
                     <div className="flex flex-col gap-2 font-medium text-lg">
                       <Link
                         to="/"
+                        onClick={() => setIsMobileMenuOpen(false)}
                         className="text-zinc-700 hover:text-black py-2 [&.active]:text-[#D91672] [&.active]:font-bold"
                         activeOptions={{ exact: true }}
                       >
@@ -212,6 +257,7 @@ export function Header({ showCategories = false }: HeaderProps) {
                       </Link>
                       <Link
                         to="/produtos"
+                        onClick={() => setIsMobileMenuOpen(false)}
                         className="text-zinc-700 hover:text-black py-2 [&.active]:text-[#D91672] [&.active]:font-bold"
                         activeOptions={{ exact: true }}
                       >
@@ -219,12 +265,14 @@ export function Header({ showCategories = false }: HeaderProps) {
                       </Link>
                       <a
                         href="/#lancamentos"
+                        onClick={() => setIsMobileMenuOpen(false)}
                         className="text-zinc-700 hover:text-black py-2 transition-colors"
                       >
                         Lançamentos
                       </a>
                       <a
                         href="/#mais-vendidos"
+                        onClick={() => setIsMobileMenuOpen(false)}
                         className="text-zinc-700 hover:text-black py-2 transition-colors"
                       >
                         Mais Vendidos

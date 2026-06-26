@@ -1,4 +1,6 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { getPublicProducts, type LegacyProduct, type FullProductAdmin } from "./products.service";
+import { supabase } from "@/lib/supabase";
 
 // ==========================================
 // UTILITÁRIOS E NORMALIZAÇÃO
@@ -214,141 +216,285 @@ export async function searchProducts(
   filters?: { categoria?: string },
   sort?: string,
 ): Promise<LegacyProduct[]> {
-  const allProducts = await getPublicProducts();
-  return searchPublicProductsLocal(allProducts, query, filters, sort);
-}
-
-export interface SearchSuggestionItem {
-  type: "product" | "category" | "term" | "action";
-  label: string;
-  searchValue: string;
-}
-
-export async function getSearchSuggestionsData(
-  query: string,
-  allProducts?: LegacyProduct[],
-): Promise<SearchSuggestionItem[]> {
-  if (!query || query.trim().length < 2) return [];
-
-  const products = allProducts || (await getPublicProducts());
-  const normQuery = normalizeSearchText(query);
-  const results = searchPublicProductsLocal(products, query);
-
-  const suggestions: SearchSuggestionItem[] = [];
-  const addedValues = new Set<string>();
-
-  const addSuggestion = (
-    type: SearchSuggestionItem["type"],
-    label: string,
-    searchValue: string,
-  ) => {
-    const val = normalizeSearchText(searchValue);
-    // Ignore exact duplicates of what the user already typed
-    if (!addedValues.has(val) && val !== normQuery) {
-      suggestions.push({ type, label, searchValue });
-      addedValues.add(val);
+  try {
+    if (!query || query.trim() === "") {
+      return [];
     }
-  };
 
-  // 1. Exact SKU Match
-  const exactSkuMatch = results.find((p) => {
-    const sku = normalizeSearchText(p.referencia)
-      .replace(/^ref\s*/, "")
-      .replace(/[-\s]/g, "");
-    const cleanQ = normQuery.replace(/^ref\s*/, "").replace(/[-\s]/g, "");
-    return sku === cleanQ;
+    // Normaliza a query removendo acentos para busca
+    const cleanQuery = query
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .trim();
+    const searchPattern = `%${cleanQuery}%`;
+
+    // Padrão original (com acentos) para bater com palavras acentuadas no banco
+    const originalQuery = query.toLowerCase().trim();
+    const searchPatternOriginal = `%${originalQuery}%`;
+
+    // Busca direta no Supabase sem depender de RPC (tenta tanto sem acento quanto com acento)
+    const { data, error } = await supabase
+      .from("products")
+      .select(
+        `
+        id, name, slug, sku, price, promotional_price, is_featured, is_bestseller, created_at, category_id, status, display_order,
+        category:categories(id, name, slug),
+        variations:product_variations(
+          id, color_name, color_slug, hex_code, display_order,
+          images:product_images(id, url, is_main, display_order),
+          sizes:product_sizes(id, size, is_available, stock)
+        )
+      `,
+      )
+      .eq("status", "published")
+      .or(
+        `name.ilike.${searchPattern},sku.ilike.${searchPattern},name.ilike.${searchPatternOriginal}`,
+      )
+      .order("created_at", { ascending: false })
+      .limit(48);
+
+    if (error) {
+      console.error("Erro na busca direta:", error);
+      // Fallback: busca todos e filtra localmente
+      const allProducts = await getPublicProducts();
+      return searchPublicProductsLocal(allProducts, query, filters, sort);
+    }
+
+    if (!data || data.length === 0) {
+      // Tentar busca mais ampla: pode ser nome de categoria (com ou sem acento)
+      const { data: catData, error: catError } = await supabase
+        .from("products")
+        .select(
+          `
+          id, name, slug, sku, price, promotional_price, is_featured, is_bestseller, created_at, category_id, status, display_order,
+          category:categories!inner(id, name, slug),
+          variations:product_variations(
+            id, color_name, color_slug, hex_code, display_order,
+            images:product_images(id, url, is_main, display_order),
+            sizes:product_sizes(id, size, is_available, stock)
+          )
+        `,
+        )
+        .eq("status", "published")
+        .or(`categories.name.ilike.${searchPattern},categories.name.ilike.${searchPatternOriginal}`)
+        .order("created_at", { ascending: false })
+        .limit(48);
+
+      if (catError || !catData || catData.length === 0) {
+        // Fallback robusto se nada for encontrado no banco via query direta:
+        // Busca todos os produtos publicados e faz a filtragem local (que remove acentos perfeitamente via JS)
+        const allProducts = await getPublicProducts();
+        return searchPublicProductsLocal(allProducts, query, filters, sort);
+      }
+
+      const mapped = catData.map((d: any) => mapToLegacy(d));
+      return sortProducts(mapped, sort);
+    }
+
+    let mapped: LegacyProduct[] = data.map((d: any) => mapToLegacy(d));
+
+    if (
+      filters?.categoria &&
+      filters.categoria !== "todos" &&
+      filters.categoria !== "lancamentos"
+    ) {
+      mapped = mapped.filter((p) => p.categoria === filters.categoria);
+    }
+
+    // Ordenar por relevância local
+    const normQuery = normalizeSearchText(query);
+    const expandedTerms = expandQueryWithSynonyms(normQuery);
+
+    mapped.sort((a, b) => {
+      const scoreA = calculateRelevance(a, query, expandedTerms);
+      const scoreB = calculateRelevance(b, query, expandedTerms);
+      return scoreB - scoreA;
+    });
+
+    return sortProducts(mapped, sort);
+  } catch (err) {
+    console.error("Erro no searchProducts:", err);
+    // Fallback total: busca tudo e filtra
+    try {
+      const allProducts = await getPublicProducts();
+      return searchPublicProductsLocal(allProducts, query, filters, sort);
+    } catch {
+      return [];
+    }
+  }
+}
+
+// Mapeia resultado do Supabase para LegacyProduct (usado pela busca)
+function mapToLegacy(d: any): LegacyProduct {
+  const vars = d.variations || [];
+  const defaultImage = "https://placehold.co/900x1200/f8f9fa/a1a1aa?text=Imagem+Pendente";
+  let mainImage = defaultImage;
+
+  if (vars.length > 0 && vars[0].images && vars[0].images.length > 0) {
+    const mainImgObj = vars[0].images.find((i: any) => i.is_main) || vars[0].images[0];
+    mainImage = mainImgObj.url;
+  }
+
+  return {
+    id: d.id,
+    nome: d.name,
+    referencia: d.sku || "",
+    categoria: d.category?.slug || "sem-categoria",
+    descricao: "",
+    preco: Number(d.price),
+    precoPromocional: d.promotional_price ? Number(d.promotional_price) : undefined,
+    imagem: mainImage,
+    destaque: d.is_featured ?? false,
+    maisVendido: d.is_bestseller ?? false,
+    tamanhos:
+      vars.length > 0 && vars[0].sizes
+        ? vars[0].sizes.filter((s: any) => s.is_available).map((s: any) => s.size)
+        : [],
+    variacoes: vars.map((v: any) => ({
+      cor: v.color_name,
+      slug: v.color_slug,
+      hex: v.hex_code || "#000000",
+      thumb:
+        v.images && v.images.length > 0
+          ? (v.images.find((i: any) => i.is_main) || v.images[0]).url
+          : mainImage,
+      imagens: v.images
+        ? v.images
+            .sort((a: any, b: any) => (a.display_order || 0) - (b.display_order || 0))
+            .map((i: any) => i.url)
+        : [],
+      tamanhos: v.sizes ? v.sizes.filter((s: any) => s.is_available).map((s: any) => s.size) : [],
+    })),
+  };
+}
+
+export interface AutocompleteProduct {
+  id: string;
+  name: string;
+  slug: string;
+  sku: string;
+  price: number;
+  promotional_price: number | null;
+  main_image_url: string;
+  category_name: string;
+  category_slug: string;
+  color_name: string;
+  is_featured: boolean;
+  is_bestseller: boolean;
+  score: number;
+}
+
+export interface AutocompleteResponse {
+  products: AutocompleteProduct[];
+  categories: { name: string; slug: string }[];
+  suggestions: string[];
+}
+
+async function getAutocompleteResultsLocal(query: string): Promise<AutocompleteProduct[]> {
+  try {
+    const allProducts = await getPublicProducts();
+    const normQuery = normalizeSearchText(query);
+    const expandedTerms = expandQueryWithSynonyms(normQuery);
+
+    const scored = allProducts
+      .map((p) => {
+        const score = calculateRelevance(p, query, expandedTerms);
+        if (score <= 0) return null;
+
+        // Mapeia para AutocompleteProduct
+        const vars = p.variacoes || [];
+        const defaultImage = "https://placehold.co/900x1200/f8f9fa/a1a1aa?text=Imagem+Pendente";
+        let mainImg = p.imagem || defaultImage;
+        let colorName = "";
+
+        if (vars.length > 0) {
+          colorName = vars[0].cor;
+          if (vars[0].imagens && vars[0].imagens.length > 0) {
+            mainImg = vars[0].imagens[0] || mainImg;
+          }
+        }
+
+        const generatedSlug = normalizeSearchText(p.nome).replace(/\s+/g, "-") || p.id;
+
+        return {
+          id: p.id,
+          name: p.nome,
+          slug: generatedSlug,
+          sku: p.referencia,
+          price: p.preco,
+          promotional_price: p.precoPromocional || null,
+          main_image_url: mainImg,
+          category_name: p.categoria,
+          category_slug: normalizeSearchText(p.categoria),
+          color_name: colorName,
+          is_featured: !!p.destaque,
+          is_bestseller: !!p.maisVendido,
+          score: score,
+        } as AutocompleteProduct;
+      })
+      .filter((item): item is AutocompleteProduct => item !== null);
+
+    scored.sort((a, b) => b.score - a.score);
+    return scored.slice(0, 6);
+  } catch (err) {
+    console.error("Erro no autocomplete local:", err);
+    return [];
+  }
+}
+
+export async function getAutocompleteResults(query: string): Promise<AutocompleteResponse> {
+  if (!query || query.trim().length < 2) {
+    return { products: [], categories: [], suggestions: [] };
+  }
+
+  const normQuery = normalizeSearchText(query);
+  let products: AutocompleteProduct[] = [];
+
+  try {
+    const { data, error } = await (supabase.rpc as any)("search_autocomplete_products", {
+      p_query: normQuery,
+      p_limit: 6,
+    });
+
+    if (!error && data && Array.isArray(data) && data.length > 0) {
+      products = data;
+    } else {
+      // Fallback local se a RPC retornar vazia ou der erro
+      products = await getAutocompleteResultsLocal(query);
+    }
+  } catch (err) {
+    console.warn("Erro ao chamar RPC search_autocomplete_products, usando fallback local:", err);
+    products = await getAutocompleteResultsLocal(query);
+  }
+
+  if (products.length === 0) {
+    return { products: [], categories: [], suggestions: [] };
+  }
+
+  const catMap = new Map<string, { name: string; slug: string }>();
+  products.forEach((p) => {
+    if (p.category_name && p.category_slug) {
+      catMap.set(p.category_slug, { name: p.category_name, slug: p.category_slug });
+    }
   });
 
-  if (exactSkuMatch) {
-    addSuggestion(
-      "product",
-      `${exactSkuMatch.nome} — REF ${exactSkuMatch.referencia}`,
-      exactSkuMatch.referencia,
-    );
-    addSuggestion("category", exactSkuMatch.categoria.replace(/-/g, " "), exactSkuMatch.categoria);
-  }
+  const suggestions = new Set<string>();
 
-  // 2. Synonyms that match what user is typing
-  let suggestedMainTerm = query;
+  // Tenta expandir o sinônimo se existir
   for (const [key, syns] of Object.entries(SYNONYMS)) {
-    if (key.startsWith(normQuery) && key !== normQuery) {
-      addSuggestion("term", key, key);
-      suggestedMainTerm = key;
-      break; // just take the first matching synonym
+    if (normQuery === key) {
+      syns.slice(0, 2).forEach((s) => suggestions.add(s));
     }
   }
 
-  // 3. Extract intel from results
-  if (results.length > 0 && !exactSkuMatch) {
-    const categoriesCount: Record<string, number> = {};
-    const colorsCount: Record<string, number> = {};
+  if (!suggestions.has(query)) suggestions.add(query);
 
-    results.forEach((p) => {
-      categoriesCount[p.categoria] = (categoriesCount[p.categoria] || 0) + 1;
-      if (p.variacoes) {
-        p.variacoes.forEach((v) => {
-          colorsCount[v.cor] = (colorsCount[v.cor] || 0) + 1;
-        });
-      }
-    });
-
-    const topCat = Object.keys(categoriesCount).sort(
-      (a, b) => categoriesCount[b] - categoriesCount[a],
-    )[0];
-    const topColor = Object.keys(colorsCount).sort((a, b) => colorsCount[b] - colorsCount[a])[0];
-
-    // Suggest top category if it's not what the user searched
-    if (topCat && !normalizeSearchText(topCat).includes(normQuery)) {
-      addSuggestion("category", topCat.replace(/-/g, " "), topCat);
-    }
-
-    // 4. Extract words from product names
-    let addedNames = 0;
-    for (const p of results) {
-      const normName = normalizeSearchText(p.nome);
-      const queryWords = normalizeSearchText(suggestedMainTerm).split(" ");
-      const lastQueryWord = queryWords[queryWords.length - 1];
-
-      if (normName.includes(lastQueryWord)) {
-        const words = normName.split(" ");
-        const idx = words.indexOf(lastQueryWord);
-        if (idx !== -1 && idx + 1 < words.length) {
-          const twoWords = `${words[idx]} ${words[idx + 1]}`;
-          addSuggestion("term", twoWords, twoWords);
-          addedNames++;
-        }
-      }
-      if (addedNames >= 2) break;
-    }
-
-    // 5. Category + Color combo
-    if (topCat && topColor) {
-      const combo = `${topCat.replace(/-/g, " ")} ${topColor}`;
-      addSuggestion("term", combo, combo);
-    }
-  }
-
-  // 6. If full query is a synonym
-  if (SYNONYMS[normQuery] && !exactSkuMatch) {
-    SYNONYMS[normQuery].slice(0, 4).forEach((syn) => {
-      addSuggestion("term", syn, syn);
-    });
-  }
-
-  // 7. Last resort: current query
-  if (suggestions.length < 5 && results.length > 0) {
-    addSuggestion("term", query, query);
-  }
-
-  if (results.length === 0) {
-    addSuggestion("action", "Ver Lançamentos", "lancamentos");
-    addSuggestion("action", "Ver Mais Vendidos", "mais-vendidos");
-  }
-
-  return suggestions.slice(0, 6).map((s) => ({
-    ...s,
-    label: s.label.charAt(0).toUpperCase() + s.label.slice(1),
-  }));
+  return {
+    products,
+    categories: Array.from(catMap.values()).slice(0, 3),
+    suggestions: Array.from(suggestions).slice(0, 5),
+  };
 }
 
 function sortProducts(products: LegacyProduct[], sort?: string): LegacyProduct[] {

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import type { Database } from "@/types/database.types";
 import { PRODUCTS } from "@/data/products";
@@ -50,25 +51,16 @@ async function applyDynamicBadges(
   );
   const top20NewestIds = new Set(sortedByDate.slice(0, 20).map((p) => p.id));
 
-  // 2. Dinâmica Mais Vendidos (Top 10 mais encaminhados pro WhatsApp)
-  const { data: analyticsData } = await supabase
-    .from("analytics_events")
-    .select("product_id")
-    .eq("event_type", "whatsapp_click");
-
+  // 2. Dinâmica Mais Vendidos (Top 10 via nova RPC)
   let top10BestsellerIds = new Set<string>();
 
-  if (analyticsData && analyticsData.length > 0) {
-    const counts: Record<string, number> = {};
-    analyticsData.forEach((e: { product_id: string | null }) => {
-      if (e.product_id) {
-        counts[e.product_id] = (counts[e.product_id] || 0) + 1;
-      }
-    });
-    const top10 = Object.keys(counts)
-      .sort((a, b) => counts[b] - counts[a])
-      .slice(0, 10);
-    top10BestsellerIds = new Set(top10);
+  try {
+    const { data: rpcData, error } = await (supabase.rpc as any)("get_top_bestseller_ids");
+    if (!error && Array.isArray(rpcData) && rpcData.length > 0) {
+      top10BestsellerIds = new Set(rpcData.map((row: any) => row.product_id));
+    }
+  } catch (err) {
+    console.error("Erro ao carregar mais vendidos via RPC:", err);
   }
 
   // Fallback para teste: se não houver dados de analytics, pega os 10 primeiros como mais vendidos
@@ -149,6 +141,8 @@ const mapSupabaseToLegacy = (row: unknown): LegacyProduct => {
 };
 
 export const getPublicProducts = async (categorySlug?: string): Promise<LegacyProduct[]> => {
+  // ATENÇÃO: Esse método carrega TODO o catálogo de forma ineficiente.
+  // Será substituído pelo getPublicProductsCardData com paginação real.
   try {
     const query = supabase
       .from("products")
@@ -184,6 +178,51 @@ export const getPublicProducts = async (categorySlug?: string): Promise<LegacyPr
   }
 };
 
+export const getPublicProductsCardData = async (
+  categorySlug?: string,
+  limit: number = 12,
+  offset: number = 0,
+): Promise<LegacyProduct[]> => {
+  try {
+    let query = supabase
+      .from("products")
+      .select(
+        `
+        id, name, slug, sku, price, promotional_price, is_featured, is_bestseller, created_at, category_id, status, display_order,
+        category:categories!inner(id, name, slug),
+        variations:product_variations(
+          id, color_name, color_slug, hex_code, display_order,
+          images:product_images(id, url, is_main, display_order),
+          sizes:product_sizes(id, size, is_available, stock)
+        )
+      `,
+      )
+      .eq("status", "published")
+      .eq("variations.active", true);
+
+    if (categorySlug) {
+      query = query.eq("categories.slug", categorySlug);
+    }
+
+    // Limit e range para paginação real
+    query = query
+      .order("display_order", { ascending: true })
+      .order("created_at", { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    const { data, error } = await query;
+
+    if (error) throw error;
+    if (!data || data.length === 0) return [];
+
+    const enrichedData = await applyDynamicBadges(data as any);
+    return enrichedData.map(mapSupabaseToLegacy);
+  } catch (error) {
+    console.error("Erro buscando produtos paginados:", error);
+    return [];
+  }
+};
+
 export const getPublicProductBySlug = async (slug: string): Promise<LegacyProduct | undefined> => {
   try {
     const { data, error } = await supabase
@@ -210,6 +249,36 @@ export const getPublicProductBySlug = async (slug: string): Promise<LegacyProduc
     return mapSupabaseToLegacy(data);
   } catch (error) {
     console.error("Erro buscando produto por slug:", error);
+    return undefined;
+  }
+};
+
+export const getPublicProductById = async (id: string): Promise<LegacyProduct | undefined> => {
+  try {
+    const { data, error } = await supabase
+      .from("products")
+      .select(
+        `
+        *,
+        category:categories(id, name, slug),
+        variations:product_variations(
+          *,
+          images:product_images(*),
+          sizes:product_sizes(*)
+        )
+      `,
+      )
+      .eq("id", id)
+      .eq("status", "published")
+      .single();
+
+    if (error || !data) {
+      return undefined;
+    }
+
+    return mapSupabaseToLegacy(data);
+  } catch (error) {
+    console.error("Erro buscando produto por id:", error);
     return undefined;
   }
 };

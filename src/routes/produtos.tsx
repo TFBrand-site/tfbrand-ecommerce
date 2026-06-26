@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useMemo, useState, useEffect } from "react";
-import { getPublicProducts } from "@/lib/services/products.service";
+import { getPublicProductsCardData } from "@/lib/services/products.service";
+import { searchProducts } from "@/lib/services/search.service";
 import { CATEGORIES } from "@/data/categories";
 import { ProductGrid } from "@/components/product/ProductGrid";
 import { Header } from "@/components/layout/Header";
@@ -49,6 +50,7 @@ export const Route = createFileRoute("/produtos")({
       preco: typeof search.preco === "string" ? search.preco : undefined,
     };
   },
+  loaderDeps: ({ search: { categoria, busca } }) => ({ categoria, busca }),
   head: () => ({
     meta: [
       { title: "Produtos | TFBrand | Moda Feminina Online" },
@@ -66,9 +68,14 @@ export const Route = createFileRoute("/produtos")({
     ],
   }),
   component: ProdutosPage,
-  loader: async () => {
-    const products = await getPublicProducts();
-    return { products };
+  loader: async ({ deps: { categoria, busca } }) => {
+    let initialProducts = [];
+    if (busca) {
+      initialProducts = await searchProducts(busca, { categoria });
+    } else {
+      initialProducts = await getPublicProductsCardData(categoria, 12, 0);
+    }
+    return { initialProducts };
   },
 });
 
@@ -82,9 +89,22 @@ const FAIXAS_PRECO = [
 ];
 
 function ProdutosPage() {
-  const { products } = Route.useLoaderData();
+  const { initialProducts } = Route.useLoaderData();
   const { categoria, busca, filtro, ordenacao, tamanho, cor, preco } = Route.useSearch();
   const navigate = useNavigate({ from: Route.id });
+
+  const [products, setProducts] = useState(initialProducts);
+  const [offset, setOffset] = useState(12);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(initialProducts.length === 12);
+
+  // Sincroniza produtos ao trocar de rota via URL
+  useEffect(() => {
+    setProducts(initialProducts);
+    setOffset(12);
+    setHasMore(initialProducts.length === 12);
+  }, [initialProducts]);
+
   const maxPrecoTotal =
     products && products.length > 0
       ? Math.ceil(Math.max(...products.map((p) => p.preco)) / 50) * 50
@@ -101,6 +121,12 @@ function ProdutosPage() {
 
   const query = busca || "";
   const category = categoria || "";
+
+  const exactSkuMatch = useMemo(() => {
+    if (!query) return false;
+    const q = query.trim().toLowerCase();
+    return products.some((p) => p.referencia.toLowerCase() === q);
+  }, [products, query]);
 
   const categoryKeys = category ? category.split(",") : [];
 
@@ -184,6 +210,31 @@ function ProdutosPage() {
     navigate({ search: {} });
   };
 
+  const loadMore = async () => {
+    if (isLoadingMore || !hasMore) return;
+    setIsLoadingMore(true);
+
+    if (busca) {
+      setHasMore(false);
+      setIsLoadingMore(false);
+      return;
+    }
+
+    try {
+      const novos = await getPublicProductsCardData(categoria, 12, offset);
+      if (novos.length > 0) {
+        setProducts((prev) => [...prev, ...novos]);
+        setOffset((prev) => prev + 12);
+        if (novos.length < 12) setHasMore(false);
+      } else {
+        setHasMore(false);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    setIsLoadingMore(false);
+  };
+
   const activeFilterCount =
     categoryKeys.length + (filtro ? 1 : 0) + (tamanho ? 1 : 0) + (cor ? 1 : 0) + (preco ? 1 : 0);
   const hasActiveFilters = activeFilterCount > 0;
@@ -194,7 +245,6 @@ function ProdutosPage() {
       defaultValue={["categoria", "preco", "tamanho", "cor"]}
       className="w-full"
     >
-      {/* Categorias */}
       <AccordionItem value="categoria" className="border-zinc-100">
         <AccordionTrigger className="text-sm font-semibold text-[#111] py-4 hover:no-underline">
           Categoria
@@ -222,7 +272,6 @@ function ProdutosPage() {
         </AccordionContent>
       </AccordionItem>
 
-      {/* Preço */}
       <AccordionItem value="preco" className="border-zinc-100">
         <AccordionTrigger className="text-sm font-semibold text-[#111] py-4 hover:no-underline">
           Preço
@@ -249,7 +298,6 @@ function ProdutosPage() {
         </AccordionContent>
       </AccordionItem>
 
-      {/* Tamanho */}
       <AccordionItem value="tamanho" className="border-zinc-100">
         <AccordionTrigger className="text-sm font-semibold text-[#111] py-4 hover:no-underline">
           Tamanho
@@ -274,7 +322,6 @@ function ProdutosPage() {
         </AccordionContent>
       </AccordionItem>
 
-      {/* Cor */}
       <AccordionItem value="cor" className="border-zinc-100 border-b-0">
         <AccordionTrigger className="text-sm font-semibold text-[#111] py-4 hover:no-underline">
           Cor
@@ -308,7 +355,6 @@ function ProdutosPage() {
       <Header />
 
       <main className="flex-1 w-full mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-4 md:py-6 flex flex-col">
-        {/* Topo Dinâmico (Busca vs Catálogo) */}
         <div className="mb-6 sm:mb-8">
           <nav
             className="flex justify-center text-[11px] sm:text-xs text-zinc-500 font-medium mb-2"
@@ -365,9 +411,17 @@ function ProdutosPage() {
             </div>
           ) : (
             <div className="flex flex-col items-center gap-4 mt-6 mb-8 text-center">
-              <h1 className="text-4xl sm:text-5xl font-display font-extrabold tracking-tight text-[#111] capitalize">
-                {query}
+              <h1 className="text-3xl sm:text-4xl font-display font-bold tracking-tight text-[#111]">
+                Resultados para: <span className="text-[#D91672]">"{query}"</span>
               </h1>
+
+              {exactSkuMatch && (
+                <div className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-green-50 text-green-700 text-sm font-semibold border border-green-200 mb-2">
+                  <Search className="w-4 h-4" />
+                  Produto encontrado pela referência!
+                </div>
+              )}
+
               <div className="flex flex-col items-center gap-3 mt-2">
                 <span className="text-sm font-bold text-[#111]">Buscas sugeridas</span>
                 <div className="flex flex-wrap items-center justify-center gap-2 max-w-2xl">
@@ -412,12 +466,11 @@ function ProdutosPage() {
           )}
         </div>
 
-        {/* Toolbar de Catálogo */}
         <div className="sticky top-[60px] sm:top-16 z-30 bg-[#FDF2F8]/95 backdrop-blur-md py-3 sm:py-4 mb-4 flex items-center justify-between gap-2">
           <p className="text-[11px] sm:text-sm text-zinc-500 font-medium whitespace-nowrap">
             <span className="text-zinc-900 font-bold">{filtered.length}</span>{" "}
             <span className="hidden sm:inline">
-              {filtered.length === 1 ? "produto" : "produtos"}
+              {filtered.length === 1 ? "produto listado" : "produtos listados"}
             </span>
           </p>
 
@@ -441,7 +494,6 @@ function ProdutosPage() {
                   {filtersContent}
                 </div>
 
-                {/* Footer do Drawer Fixo */}
                 <div className="p-5 sm:p-6 border-t border-zinc-100 bg-white flex items-center justify-between shrink-0 gap-3 sm:rounded-b-[24px] shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.05)]">
                   <button
                     onClick={() => {
@@ -511,9 +563,7 @@ function ProdutosPage() {
         </div>
 
         <div className="flex flex-col flex-1 w-full">
-          {/* Content Area Full Width */}
           <div className="flex-1 w-full">
-            {/* Active Filter Chips */}
             {hasActiveFilters && (
               <div className="mb-6 flex flex-wrap items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-300">
                 {categoryKeys.length > 0 &&
@@ -584,45 +634,65 @@ function ProdutosPage() {
               </div>
             )}
 
-            {/* Grid / Empty State */}
             {filtered.length > 0 ? (
               <div className="mb-12">
                 <ProductGrid products={filtered} />
+
+                {hasMore && (
+                  <div className="mt-12 flex justify-center">
+                    <button
+                      onClick={loadMore}
+                      disabled={isLoadingMore}
+                      className="rounded-full border border-[#111] px-8 py-3 text-sm font-bold text-[#111] hover:bg-[#111] hover:text-white transition-colors cursor-pointer flex items-center justify-center"
+                    >
+                      {isLoadingMore ? "Carregando..." : "Carregar mais produtos"}
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
-              <div className="py-24 flex flex-col items-center justify-center text-center bg-white rounded-2xl border border-zinc-100 shadow-sm mb-12">
+              <div className="py-24 flex flex-col items-center justify-center text-center bg-white rounded-2xl border border-zinc-100 shadow-sm mb-12 px-4">
                 <div className="w-16 h-16 bg-zinc-50 rounded-full flex items-center justify-center mb-4">
                   <Search className="w-8 h-8 text-zinc-300" />
                 </div>
                 <h3 className="text-xl font-bold text-[#111] mb-2">Nenhum produto encontrado</h3>
-                <p className="text-muted-foreground mb-8 max-w-md">
-                  Tente ajustar os filtros, trocar de categoria ou buscar por outro termo.
+                <p className="text-muted-foreground mb-6 max-w-md">
+                  Não encontramos nada para{" "}
+                  <span className="font-semibold text-black">"{query}"</span>. Tente ajustar os
+                  filtros, usar um termo mais genérico (ex: "vestido") ou conferir os lançamentos.
                 </p>
-                <button
-                  onClick={clearFilters}
-                  className="inline-flex items-center justify-center rounded-full bg-[#111] px-8 py-3 text-sm font-bold text-white hover:bg-[#D91672] transition-all shadow-sm cursor-pointer"
-                >
-                  Limpar todos os filtros
-                </button>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <button
+                    onClick={clearFilters}
+                    className="inline-flex items-center justify-center rounded-full bg-[#111] px-6 py-3 text-sm font-bold text-white hover:bg-zinc-800 transition-all shadow-sm cursor-pointer"
+                  >
+                    Limpar filtros e ver tudo
+                  </button>
+                  <a
+                    href={whatsappLink(
+                      `Olá, não encontrei o que procurava na busca (${query}). Podem me ajudar?`,
+                    )}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center justify-center rounded-full bg-[#25D366] px-6 py-3 text-sm font-bold text-white hover:bg-[#20bd5a] transition-all shadow-sm cursor-pointer gap-2"
+                  >
+                    Pedir ajuda no Whatsapp
+                  </a>
+                </div>
               </div>
             )}
 
-            {/* Help Section - Personal Shopper */}
             <div className="mt-16 sm:mt-24 mb-8 w-full bg-white border border-[#D91672]/10 rounded-2xl overflow-hidden shadow-sm relative isolate">
-              {/* Background Effect */}
               <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top_right,var(--tw-gradient-stops))] from-[#D91672]/3 via-transparent to-transparent"></div>
 
               <div className="flex flex-col sm:flex-row items-center justify-between p-8 sm:p-12 gap-8 text-center sm:text-left">
                 <div className="flex-1 max-w-xl">
-                  <span className="text-[#D91672] font-semibold text-xs tracking-widest uppercase mb-2 block">
-                    Personal Shopper
-                  </span>
                   <h3 className="text-2xl sm:text-3xl font-display font-bold text-[#111] mb-3">
-                    Não encontrou a peça perfeita?
+                    Não encontrou o que procurava ?
                   </h3>
                   <p className="text-zinc-500 text-sm leading-relaxed">
-                    Nossas consultoras estão prontas no WhatsApp para ajudar você a montar o look
-                    ideal para qualquer ocasião. Envie suas medidas e preferências!
+                    Nos envie uma mensagem no Whatsapp para vermos a possibilidade de trazermos a
+                    sua peça por encomenda.
                   </p>
                 </div>
 

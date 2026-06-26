@@ -5,9 +5,9 @@ import { cn, getOptimizedImageUrl } from "@/lib/utils";
 
 export function ProductCard({ product }: { product: Product }) {
   const cat = product.categoria.replace("-", " ");
-  const mainImage = getOptimizedImageUrl(product.imagem, 400);
+  const mainImage = getOptimizedImageUrl(product.imagem, "card");
   const secondaryImage = product.variacoes?.[0]?.imagens?.[1]
-    ? getOptimizedImageUrl(product.variacoes[0].imagens[1], 400)
+    ? getOptimizedImageUrl(product.variacoes[0].imagens[1], "card")
     : null;
 
   return (
@@ -22,6 +22,7 @@ export function ProductCard({ product }: { product: Product }) {
           src={mainImage}
           alt={product.nome}
           loading="lazy"
+          decoding="async"
           className={cn(
             "h-full w-full object-cover transition-all duration-700 group-hover:scale-105",
             secondaryImage && "group-hover:opacity-0",
@@ -32,6 +33,7 @@ export function ProductCard({ product }: { product: Product }) {
             src={secondaryImage}
             alt={`${product.nome} - Detalhe`}
             loading="lazy"
+            decoding="async"
             className="absolute inset-0 h-full w-full object-cover opacity-0 transition-all duration-700 group-hover:scale-105 group-hover:opacity-100"
           />
         )}

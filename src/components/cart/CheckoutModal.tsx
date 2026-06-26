@@ -129,6 +129,7 @@ export function CheckoutModal({ open, onClose }: { open: boolean; onClose: () =>
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [idempotencyKey] = useState(() => crypto.randomUUID());
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -193,6 +194,7 @@ export function CheckoutModal({ open, onClose }: { open: boolean; onClose: () =>
           p_device_info: navigator.userAgent,
           p_origin: window.location.pathname,
           p_obs: obs || "",
+          p_idempotency_key: idempotencyKey,
         });
 
         if (error) throw error;

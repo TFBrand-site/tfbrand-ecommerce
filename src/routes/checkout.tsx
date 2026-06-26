@@ -126,6 +126,7 @@ function CheckoutPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [idempotencyKey] = useState(() => crypto.randomUUID());
 
   // ─── API ViaCEP ───────────────────────────────────────────────────────────
   async function handleCepBlur(e: React.FocusEvent<HTMLInputElement>) {
@@ -209,6 +210,7 @@ function CheckoutPage() {
           p_device_info: navigator.userAgent,
           p_origin: window.location.pathname,
           p_obs: obs || "",
+          p_idempotency_key: idempotencyKey,
         });
 
         if (error) throw error;

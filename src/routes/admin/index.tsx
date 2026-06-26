@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { getAdminProducts } from "@/lib/services/products.service";
 import { getCategories } from "@/lib/services/categories.service";
