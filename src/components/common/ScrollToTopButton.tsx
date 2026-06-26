@@ -31,7 +31,7 @@ export function ScrollToTopButton() {
     <button
       onClick={scrollToTop}
       aria-label="Voltar ao topo"
-      className="fixed bottom-24 right-4 z-40 flex h-12 w-12 animate-in fade-in zoom-in items-center justify-center rounded-full bg-[#1e2329] text-white shadow-[0_4px_14px_0_rgba(0,0,0,0.25)] transition-all hover:bg-[#2b313a] active:scale-95 sm:bottom-24 cursor-pointer"
+      className="fixed bottom-24 right-4 z-40 hidden sm:flex h-12 w-12 animate-in fade-in zoom-in items-center justify-center rounded-full bg-[#1e2329] text-white shadow-[0_4px_14px_0_rgba(0,0,0,0.25)] transition-all hover:bg-[#2b313a] active:scale-95 cursor-pointer"
     >
       <ArrowUp className="h-6 w-6" />
     </button>

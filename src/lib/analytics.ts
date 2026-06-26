@@ -1,7 +1,7 @@
 declare global {
   interface Window {
-    dataLayer: any[];
-    gtag: (...args: any[]) => void;
+    dataLayer: unknown[];
+    gtag: (...args: unknown[]) => void;
   }
 }
 
@@ -16,7 +16,7 @@ export const pageview = (url: string) => {
 };
 
 // Eventos específicos
-export const trackEvent = (action: string, params?: Record<string, any>) => {
+export const trackEvent = (action: string, params?: Record<string, unknown>) => {
   if (typeof window === "undefined" || !window.gtag) return;
   window.gtag("event", action, params);
 };
@@ -53,5 +53,13 @@ export const trackWhatsappCheckout = (value?: number) => {
   trackEvent("whatsapp_checkout", {
     value: value,
     currency: "BRL",
+  });
+};
+
+export const trackSearch = (searchTerm: string, resultsCount: number, origin: string) => {
+  trackEvent("search", {
+    search_term: searchTerm,
+    results_count: resultsCount,
+    search_origin: origin,
   });
 };

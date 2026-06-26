@@ -23,9 +23,8 @@ import { Header } from "@/components/layout/Header";
 
 import { Footer } from "@/components/layout/Footer";
 import { CartDrawer } from "@/components/cart/CartDrawer";
-import { FloatingCartBar } from "@/components/cart/FloatingCartBar";
 import { FloatingWhatsAppButton } from "@/components/common/FloatingWhatsAppButton";
-import { NewsletterFooter } from "@/components/common/NewsletterFooter";
+
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
 
@@ -174,9 +173,11 @@ function ProductPage() {
   const [selectedSize, setSelectedSize] = useState<string>("");
 
   // Variação e Imagem Principal
+  const hasMultipleVariations = (product?.variacoes?.length || 0) > 1;
   const defaultVariation = product?.variacoes?.[0] || null;
-  const [selectedVariation, setSelectedVariation] =
-    useState<typeof defaultVariation>(defaultVariation);
+  const [selectedVariation, setSelectedVariation] = useState<typeof defaultVariation | null>(
+    defaultVariation,
+  );
   const [selectedImage, setSelectedImage] = useState<string>(
     defaultVariation?.imagens?.[0] || product?.imagem || "",
   );
@@ -229,7 +230,7 @@ function ProductPage() {
     return (
       <div className="min-h-screen bg-background flex flex-col justify-between">
         <Header />
-        <div className="mx-auto max-w-7xl px-4 py-24 text-center">
+        <div className="mx-auto w-full max-w-[1600px] px-4 py-24 text-center">
           <h1 className="text-3xl font-semibold text-foreground">Produto não encontrado</h1>
           <p className="mt-3 text-muted-foreground">
             O produto que você procura não existe ou foi removido.
@@ -250,13 +251,21 @@ function ProductPage() {
   const details = CATEGORY_DETAILS[product.categoria] ?? CATEGORY_DETAILS.vestidos;
 
   const handleAddToCartClick = (e: React.MouseEvent, id: string) => {
+    if (hasMultipleVariations && !selectedVariation) {
+      e.preventDefault();
+      toast.error("Selecione uma cor", {
+        description: "Por favor, escolha uma cor antes de adicionar à sacola.",
+      });
+      return;
+    }
     if (!selectedSize) {
       e.preventDefault();
       setPopoverOpenId(id);
     } else {
       for (let i = 0; i < qty; i++) {
-        add(product, selectedSize, selectedVariation?.cor);
+        add(product, selectedSize, selectedVariation?.cor || product.variacoes?.[0]?.cor);
       }
+      toast.success("Adicionado à sacola!");
     }
   };
 
@@ -271,7 +280,7 @@ function ProductPage() {
         <span className="text-sm font-semibold text-foreground">Selecione um tamanho:</span>
         <button
           onClick={() => setPopoverOpenId(null)}
-          className="text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
+          className="text-muted-foreground hover:text-[#D91672] transition-colors"
         >
           <X className="h-4 w-4" />
         </button>
@@ -299,13 +308,16 @@ function ProductPage() {
     window.open(whatsappLink(text), "_blank");
   };
 
-  const availableSizes = product.tamanhos || ["P", "M", "G", "GG"];
+  const availableSizes =
+    selectedVariation?.tamanhos && selectedVariation.tamanhos.length > 0
+      ? selectedVariation.tamanhos
+      : product.tamanhos || ["P", "M", "G", "GG"];
 
   return (
     <div className="min-h-screen bg-background">
       <Header showCategories />
 
-      <main className="mx-auto max-w-[1200px] px-4 py-8 sm:py-12 md:py-16">
+      <main className="mx-auto w-full max-w-[1600px] px-4 sm:px-8 lg:px-16 xl:px-24 py-8 sm:py-12 md:py-16">
         {/* Navegação / Breadcrumb */}
         <div className="mb-6 flex items-center gap-2 text-sm text-muted-foreground overflow-x-auto whitespace-nowrap pb-1 hide-scrollbar">
           <button
@@ -338,7 +350,7 @@ function ProductPage() {
           {/* Galeria de Imagens do Produto */}
           <div className="flex flex-col gap-4">
             <div
-              className="relative aspect-[3/4] w-full overflow-hidden rounded-2xl bg-muted shadow-lg cursor-zoom-in group md:hover:shadow-xl transition-shadow"
+              className="relative aspect-3/4 w-full overflow-hidden rounded-2xl bg-muted shadow-lg cursor-zoom-in group md:hover:shadow-xl transition-shadow"
               onMouseMove={(e) => {
                 const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
                 const x = ((e.clientX - left) / width) * 100;
@@ -367,7 +379,7 @@ function ProductPage() {
             {/* Miniaturas da Galeria */}
             {selectedVariation &&
               selectedVariation.imagens &&
-              selectedVariation.imagens.length > 1 && (
+              selectedVariation.imagens.length > 0 && (
                 <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
                   {selectedVariation.imagens.map((imgUrl, idx) => (
                     <button
@@ -394,15 +406,28 @@ function ProductPage() {
           <div className="flex flex-col justify-start lg:pl-4 xl:pl-8">
             <div className="border-b border-border pb-4">
               <span className="text-xs uppercase tracking-widest text-gold font-medium">
-                REF: {product.referencia}
+                REF: {product.referencia?.replace(/^REF[-\s:]*/i, "").toUpperCase()}
               </span>
               <h1 className="mt-1 font-display text-2xl font-medium text-foreground sm:text-3xl leading-tight">
                 {product.nome}
               </h1>
 
-              <p className="mt-3 font-display text-2xl font-bold text-foreground">
-                {formatPrice(product.preco)}
-              </p>
+              <div className="mt-3 flex items-center gap-3">
+                {product.precoPromocional && product.precoPromocional < product.preco ? (
+                  <>
+                    <p className="font-display text-2xl font-bold text-foreground">
+                      {formatPrice(product.precoPromocional)}
+                    </p>
+                    <p className="text-lg text-muted-foreground line-through decoration-muted-foreground/40 font-medium">
+                      {formatPrice(product.preco)}
+                    </p>
+                  </>
+                ) : (
+                  <p className="font-display text-2xl font-bold text-foreground">
+                    {formatPrice(product.preco)}
+                  </p>
+                )}
+              </div>
             </div>
 
             {/* Descrição / Detalhes */}
@@ -419,12 +444,12 @@ function ProductPage() {
                 </span>
                 <Sheet>
                   <SheetTrigger asChild>
-                    <button className="text-xs underline text-muted-foreground hover:text-foreground cursor-pointer flex items-center gap-1 transition-colors hover:text-[#D91672]">
+                    <button className="text-xs underline text-muted-foreground cursor-pointer flex items-center gap-1 transition-colors hover:text-[#D91672]">
                       <Ruler className="h-3.5 w-3.5" /> Tabela de medidas
                     </button>
                   </SheetTrigger>
                   <SheetContent className="w-full sm:max-w-md md:max-w-lg overflow-y-auto bg-white p-0 border-l border-border/50">
-                    <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-md border-b border-border/40 px-6 py-4 flex items-center justify-between">
+                    <div className="fixed inset-x-0 bottom-0 p-4 bg-white/80 backdrop-blur-md border-t border-border z-100 flex items-center justify-between gap-4 md:hidden pb-safe">
                       <SheetTitle className="font-display text-xl text-foreground">
                         Guia de Medidas
                       </SheetTitle>
@@ -576,19 +601,25 @@ function ProductPage() {
                 </Sheet>
               </div>
               <div className="flex flex-wrap gap-2">
-                {availableSizes.map((size) => (
-                  <button
-                    key={size}
-                    onClick={() => setSelectedSize(size)}
-                    className={`flex h-10 min-w-12 px-3 items-center justify-center rounded-lg border text-sm transition cursor-pointer ${
-                      selectedSize === size
-                        ? "border-foreground bg-foreground text-background font-semibold"
-                        : "border-border bg-background hover:border-foreground/50 text-foreground"
-                    }`}
-                  >
-                    {size}
-                  </button>
-                ))}
+                {availableSizes.length > 0 ? (
+                  availableSizes.map((size) => (
+                    <button
+                      key={size}
+                      onClick={() => setSelectedSize(size)}
+                      className={`flex h-10 min-w-12 px-3 items-center justify-center rounded-lg border text-sm transition cursor-pointer ${
+                        selectedSize === size
+                          ? "border-foreground bg-foreground text-background font-semibold"
+                          : "border-border bg-background hover:border-foreground/50 text-foreground"
+                      }`}
+                    >
+                      {size}
+                    </button>
+                  ))
+                ) : (
+                  <span className="text-sm text-muted-foreground italic py-2">
+                    Nenhum tamanho disponível para esta cor.
+                  </span>
+                )}
               </div>
             </div>
 
@@ -654,105 +685,128 @@ function ProductPage() {
             </div>
 
             {/* Botões de Ação */}
-            <div className="mt-6">
-              {/* Desktop version */}
-              <div className="hidden sm:flex flex-col gap-3">
-                <Popover
-                  open={popoverOpenId === "desktop"}
-                  onOpenChange={(open) => setPopoverOpenId(open ? "desktop" : null)}
-                >
-                  <PopoverTrigger asChild>
-                    <Button
-                      onClick={(e) => handleAddToCartClick(e, "desktop")}
-                      className="w-full rounded-xl bg-foreground text-background h-12 text-sm font-medium hover:bg-foreground/90 cursor-pointer shadow-sm transition-transform hover:-translate-y-0.5 active:translate-y-0"
-                    >
-                      <ShoppingBag className="mr-2 h-4 w-4" />
-                      Adicionar à Sacola
-                    </Button>
-                  </PopoverTrigger>
-                  {renderSizePopover()}
-                </Popover>
-                <Button
-                  variant="outline"
-                  onClick={handleWhatsAppInquiry}
-                  className="w-full rounded-xl border-border bg-transparent h-12 text-sm font-medium text-foreground hover:bg-zinc-50 transition cursor-pointer"
-                >
-                  <WhatsAppIcon className="mr-2 h-[18px] w-[18px]" />
-                  Dúvidas no WhatsApp
-                </Button>
-              </div>
+            <div className="mt-6 flex flex-col gap-3">
+              <Popover
+                open={popoverOpenId === "action"}
+                onOpenChange={(open) => setPopoverOpenId(open ? "action" : null)}
+              >
+                <PopoverTrigger asChild>
+                  <Button
+                    onClick={(e) => handleAddToCartClick(e, "action")}
+                    className="w-full rounded-xl bg-[#D91672] hover:bg-[#c11363] text-white h-12 sm:h-14 text-sm sm:text-base font-bold cursor-pointer shadow-md transition-all hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center gap-2"
+                  >
+                    <ShoppingBag className="h-5 w-5" />
+                    Adicionar à Sacola
+                  </Button>
+                </PopoverTrigger>
+                {renderSizePopover()}
+              </Popover>
 
-              {/* Mobile Sticky version */}
-              <div className="sm:hidden fixed bottom-0 left-0 right-0 z-30 bg-white border-t border-zinc-200 p-3 flex gap-3 shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.05)] pb-[calc(env(safe-area-inset-bottom)+12px)]">
-                <Popover
-                  open={popoverOpenId === "mobile"}
-                  onOpenChange={(open) => setPopoverOpenId(open ? "mobile" : null)}
-                >
-                  <PopoverTrigger asChild>
-                    <Button
-                      onClick={(e) => handleAddToCartClick(e, "mobile")}
-                      className="flex-1 rounded-xl bg-primary h-14 text-sm font-bold text-primary-foreground hover:bg-primary/95 cursor-pointer shadow-md"
-                    >
-                      <ShoppingBag className="mr-2 h-4 w-4" />
-                      Sacola
-                    </Button>
-                  </PopoverTrigger>
-                  {renderSizePopover()}
-                </Popover>
-                <Button
-                  variant="outline"
-                  onClick={handleWhatsAppInquiry}
-                  className="flex-[1.2] rounded-xl border-green-600/30 bg-green-50 h-14 text-sm font-bold text-green-700 hover:bg-green-100 transition cursor-pointer"
-                >
-                  <WhatsAppIcon className="mr-2 h-5 w-5" />
-                  WhatsApp
-                </Button>
-              </div>
-              <div className="h-[72px] sm:hidden" aria-hidden="true" />
+              <Button
+                variant="outline"
+                onClick={handleWhatsAppInquiry}
+                className="w-full rounded-xl border-green-600/30 bg-green-50/50 hover:bg-green-50 h-12 sm:h-14 text-sm sm:text-base font-bold text-green-700 hover:text-green-800 transition cursor-pointer flex items-center justify-center gap-2"
+              >
+                <WhatsAppIcon className="h-5 w-5" />
+                Comprar pelo WhatsApp
+              </Button>
             </div>
 
             {/* Accordion com Detalhes e Cuidados */}
-            <div className="mt-8 pt-2">
-              <Accordion type="single" collapsible className="w-full">
-                {details.composicao && (
-                  <AccordionItem value="composicao">
-                    <AccordionTrigger className="text-sm font-semibold hover:no-underline text-foreground/90">
-                      Composição do tecido
-                    </AccordionTrigger>
-                    <AccordionContent className="text-sm text-muted-foreground leading-relaxed">
-                      {details.composicao}
-                    </AccordionContent>
-                  </AccordionItem>
-                )}
-                {details.cuidados && details.cuidados.length > 0 && (
-                  <AccordionItem value="cuidados">
-                    <AccordionTrigger className="text-sm font-semibold hover:no-underline text-foreground/90">
-                      Cuidados com a peça
-                    </AccordionTrigger>
-                    <AccordionContent>
-                      <ul className="space-y-2.5 text-sm text-muted-foreground">
-                        {details.cuidados.map((c, i) => (
-                          <li key={i} className="flex items-start gap-2.5">
-                            <div className="mt-2 h-1.5 w-1.5 rounded-full bg-foreground/30 shrink-0" />
-                            <span className="leading-relaxed">{c}</span>
-                          </li>
+            <Accordion type="single" collapsible className="mt-8">
+              <AccordionItem value="description" className="border-border/50">
+                <AccordionTrigger className="text-sm font-medium hover:text-[#D91672] transition-colors py-4">
+                  Descrição do produto
+                </AccordionTrigger>
+                <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4">
+                  {product.descricao}
+                </AccordionContent>
+              </AccordionItem>
+
+              {((typeof product.composicao === "string" && product.composicao.trim()) ||
+                (typeof product.cuidados === "string" && product.cuidados.trim())) && (
+                <AccordionItem value="composition-care" className="border-border/50">
+                  <AccordionTrigger className="text-sm font-medium hover:text-[#D91672] transition-colors py-4">
+                    Composição e Cuidados
+                  </AccordionTrigger>
+                  <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4 space-y-3">
+                    {typeof product.composicao === "string" && product.composicao.trim() && (
+                      <div>
+                        <strong className="text-foreground font-medium block mb-1">
+                          Composição:
+                        </strong>
+                        <p>{product.composicao}</p>
+                      </div>
+                    )}
+                    {typeof product.cuidados === "string" && product.cuidados.trim() && (
+                      <div>
+                        <strong className="text-foreground font-medium block mb-1">
+                          Cuidados com a peça:
+                        </strong>
+                        <p>{product.cuidados}</p>
+                      </div>
+                    )}
+                  </AccordionContent>
+                </AccordionItem>
+              )}
+
+              {typeof product.dicaCaimento === "string" && product.dicaCaimento.trim() && (
+                <AccordionItem value="fit" className="border-border/50">
+                  <AccordionTrigger className="text-sm font-medium hover:text-[#D91672] transition-colors py-4">
+                    Dica de caimento
+                  </AccordionTrigger>
+                  <AccordionContent className="text-sm text-muted-foreground leading-relaxed pb-4">
+                    {product.dicaCaimento}
+                  </AccordionContent>
+                </AccordionItem>
+              )}
+
+              <AccordionItem value="measurements" className="border-border/50">
+                <AccordionTrigger className="text-sm font-medium hover:text-[#D91672] transition-colors py-4">
+                  Guia de Medidas & Tamanhos
+                </AccordionTrigger>
+                <AccordionContent className="pb-4">
+                  <div className="rounded-xl border border-border/60 overflow-hidden shadow-sm bg-white mt-2">
+                    <table className="w-full text-xs text-center">
+                      <thead className="bg-muted/40 text-muted-foreground font-semibold uppercase tracking-wider">
+                        <tr>
+                          <th className="px-2.5 py-2.5 text-left font-semibold">Tamanho</th>
+                          <th className="px-1.5 py-2.5 font-semibold">Busto</th>
+                          <th className="px-1.5 py-2.5 font-semibold">Cintura</th>
+                          <th className="px-1.5 py-2.5 font-semibold">Quadril</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border/60 bg-white">
+                        {details.medidas.map((m) => (
+                          <tr key={m.tamanho} className="hover:bg-muted/10 transition-colors">
+                            <td className="px-2.5 py-2.5 text-left font-bold text-foreground">
+                              {m.tamanho}
+                              {m.numeracao && (
+                                <span className="text-muted-foreground font-normal ml-0.5">
+                                  /{m.numeracao}
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-1.5 py-2.5 text-muted-foreground">
+                              {m.busto || "-"}
+                            </td>
+                            <td className="px-1.5 py-2.5 text-muted-foreground">
+                              {m.cintura || "-"}
+                            </td>
+                            <td className="px-1.5 py-2.5 text-muted-foreground">
+                              {m.quadril || "-"}
+                            </td>
+                          </tr>
                         ))}
-                      </ul>
-                    </AccordionContent>
-                  </AccordionItem>
-                )}
-                {details.dicaCaimento && (
-                  <AccordionItem value="caimento">
-                    <AccordionTrigger className="text-sm font-semibold hover:no-underline text-foreground/90">
-                      Dica de caimento
-                    </AccordionTrigger>
-                    <AccordionContent className="text-sm text-muted-foreground leading-relaxed">
-                      {details.dicaCaimento}
-                    </AccordionContent>
-                  </AccordionItem>
-                )}
-              </Accordion>
-            </div>
+                      </tbody>
+                    </table>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground/80 italic mt-3 px-1">
+                    {details.observacaoMedidas}
+                  </p>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
           </div>
         </div>
 
@@ -765,7 +819,7 @@ function ProductPage() {
                   Combina Com
                 </span>
                 <h2 className="font-display mt-1 text-2xl font-extrabold text-[#111] sm:text-3xl">
-                  Quem Comprou Também Amou
+                  Quem comprou também levou
                 </h2>
               </div>
             </div>
@@ -783,12 +837,8 @@ function ProductPage() {
         )}
       </main>
 
-      <NewsletterFooter />
       <Footer />
-      <div className="hidden sm:block">
-        <FloatingWhatsAppButton />
-      </div>
-      <FloatingCartBar />
+      <FloatingWhatsAppButton />
       <CartDrawer />
       <Toaster position="top-center" />
 
@@ -815,9 +865,22 @@ function ProductPage() {
                     </span>
                   )}
                 </h3>
-                <p className="text-sm font-bold text-foreground mt-0.5">
-                  {formatPrice(product.preco)}
-                </p>
+                <div className="flex items-center gap-2 mt-0.5">
+                  {product.precoPromocional && product.precoPromocional < product.preco ? (
+                    <>
+                      <span className="text-sm font-bold text-[#D91672]">
+                        {formatPrice(product.precoPromocional)}
+                      </span>
+                      <span className="text-xs text-muted-foreground line-through font-normal">
+                        {formatPrice(product.preco)}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-sm font-bold text-foreground">
+                      {formatPrice(product.preco)}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
             <Popover
@@ -841,7 +904,7 @@ function ProductPage() {
 
       {/* Lightbox em Tela Cheia */}
       {isLightboxOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-white/95 backdrop-blur-md">
+        <div className="fixed inset-0 z-100 flex items-center justify-center bg-white/95 backdrop-blur-md">
           <button
             onClick={() => setIsLightboxOpen(false)}
             className="absolute top-6 right-6 z-50 flex h-12 w-12 items-center justify-center rounded-full border border-border/50 bg-white/80 hover:bg-white shadow-sm transition-colors cursor-pointer"

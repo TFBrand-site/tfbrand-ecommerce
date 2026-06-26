@@ -64,10 +64,6 @@ const MOCK_CATEGORIES: Category[] = [
 ];
 
 export const getCategories = async (onlyActive = false): Promise<Category[]> => {
-  if (!isSupabaseConfigured()) {
-    return onlyActive ? MOCK_CATEGORIES.filter((c) => c.active) : MOCK_CATEGORIES;
-  }
-
   let query = supabase.from("categories").select("*").order("display_order", { ascending: true });
   if (onlyActive) {
     query = query.eq("active", true);
@@ -79,10 +75,6 @@ export const getCategories = async (onlyActive = false): Promise<Category[]> => 
 };
 
 export const getCategoryBySlug = async (slug: string): Promise<Category | null> => {
-  if (!isSupabaseConfigured()) {
-    return MOCK_CATEGORIES.find((c) => c.slug === slug) || null;
-  }
-
   const { data, error } = await supabase.from("categories").select("*").eq("slug", slug).single();
   if (error && error.code !== "PGRST116") throw error; // PGRST116 is "no rows returned"
   return data;
@@ -110,9 +102,19 @@ export const updateCategory = async (id: string, category: CategoryUpdate): Prom
   return data;
 };
 
-export const deleteCategory = async (id: string): Promise<void> => {
-  if (!isSupabaseConfigured()) throw new Error("Supabase não configurado para deletar categorias.");
-
+export const deleteCategory = async (id: string): Promise<boolean> => {
   const { error } = await supabase.from("categories").delete().eq("id", id);
+  if (error) throw error;
+  return true;
+};
+
+export const updateCategoryOrders = async (
+  updates: { id: string; display_order: number }[],
+): Promise<void> => {
+  // O Supabase tem um método 'upsert' que pode fazer atualizações em massa
+  // se a primary key estiver presente. Como temos o id, vai atualizar.
+  const { error } = await supabase
+    .from("categories")
+    .upsert(updates as unknown as CategoryInsert[], { onConflict: "id" });
   if (error) throw error;
 };

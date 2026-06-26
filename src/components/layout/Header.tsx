@@ -134,7 +134,7 @@ export function Header({ showCategories = false }: HeaderProps) {
 
   return (
     <>
-      <header className="sticky top-0 z-45 flex flex-col w-full bg-white/95 backdrop-blur-md text-zinc-900 shadow-sm border-b border-zinc-200">
+      <header className="sticky top-0 z-45 flex flex-col w-full bg-[#FDF2F8]/95 backdrop-blur-md text-zinc-900 shadow-sm border-b border-pink-100">
         <div className="mx-auto flex w-full max-w-7xl items-center gap-3 px-4 py-3 sm:gap-6 sm:py-4">
           {/* Expanded Mobile Search */}
           {isSearchExpanded ? (
@@ -190,9 +190,9 @@ export function Header({ showCategories = false }: HeaderProps) {
                 </SheetTrigger>
                 <SheetContent
                   side="left"
-                  className="bg-white border-r-zinc-200 text-zinc-900 p-0 w-80"
+                  className="bg-[#FDF2F8] border-r-pink-100 text-zinc-900 p-0 w-80"
                 >
-                  <SheetHeader className="p-4 border-b border-zinc-100 text-left">
+                  <SheetHeader className="p-4 border-b border-pink-100/50 text-left">
                     <SheetTitle className="text-zinc-900 flex items-center">
                       <img
                         src="/images/logo.png"
@@ -263,7 +263,7 @@ export function Header({ showCategories = false }: HeaderProps) {
                   <div className="absolute top-full left-0 w-full opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
                     {/* Ponte transparente para não perder o hover */}
                     <div className="absolute -top-6 left-0 w-full h-6 bg-transparent"></div>
-                    <div className="w-full bg-white border-t border-b border-zinc-200 shadow-[0_10px_20px_-10px_rgba(0,0,0,0.05)]">
+                    <div className="w-full bg-[#FDF2F8] border-t border-b border-pink-100 shadow-[0_10px_20px_-10px_rgba(0,0,0,0.05)]">
                       <div className="mx-auto w-full max-w-7xl px-4 py-8 flex flex-col">
                         <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-[0.2em] mb-5">
                           Categorias
@@ -315,8 +315,10 @@ export function Header({ showCategories = false }: HeaderProps) {
                     {!query && (
                       <div className="absolute left-9 right-4 top-1/2 -translate-y-1/2 pointer-events-none flex items-center text-sm text-zinc-400">
                         Estou pensando em{" "}
-                        <strong className="ml-1 text-zinc-700">{currentPlaceholder}</strong>
-                        <span className="animate-pulse font-light text-zinc-400 ml-[1px]">|</span>
+                        <strong className="ml-1 text-[#D91672] font-semibold">
+                          {currentPlaceholder}
+                        </strong>
+                        <span className="animate-pulse font-light text-[#D91672] ml-px">|</span>
                       </div>
                     )}
                     <SearchAutocomplete

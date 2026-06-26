@@ -1,6 +1,6 @@
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
-import { PRODUCTS, type Product as LegacyProduct } from "@/data/products";
 import type { Database } from "@/types/database.types";
+import { PRODUCTS } from "@/data/products";
 
 export type ProductRow = Database["public"]["Tables"]["products"]["Row"];
 export type VariationRow = Database["public"]["Tables"]["product_variations"]["Row"];
@@ -12,60 +12,145 @@ export type FullProductAdmin = ProductRow & {
   category: { id: string; name: string; slug: string } | null;
 };
 
+// Tipos antigos para retrocompatibilidade
+export type LegacyProduct = {
+  id: string;
+  nome: string;
+  referencia: string;
+  categoria: string;
+  descricao: string;
+  preco: number;
+  imagem: string;
+  destaque: boolean;
+  maisVendido: boolean;
+  tamanhos?: string[];
+  tags?: string[];
+  variacoes?: {
+    cor: string;
+    slug: string;
+    hex: string;
+    thumb: string;
+    imagens: string[];
+    tamanhos: string[];
+  }[];
+  precoPromocional?: number;
+  composicao?: string;
+  cuidados?: string;
+  dicaCaimento?: string;
+};
+
+async function applyDynamicBadges(
+  products: (Record<string, unknown> & { id: string; created_at: string })[],
+) {
+  if (!products || products.length === 0) return products;
+
+  // 1. Dinâmica Lançamentos (Top 20 mais recentes)
+  const sortedByDate = [...products].sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+  );
+  const top20NewestIds = new Set(sortedByDate.slice(0, 20).map((p) => p.id));
+
+  // 2. Dinâmica Mais Vendidos (Top 10 mais encaminhados pro WhatsApp)
+  const { data: analyticsData } = await supabase
+    .from("analytics_events")
+    .select("product_id")
+    .eq("event_type", "whatsapp_click");
+
+  let top10BestsellerIds = new Set<string>();
+
+  if (analyticsData && analyticsData.length > 0) {
+    const counts: Record<string, number> = {};
+    analyticsData.forEach((e: { product_id: string | null }) => {
+      if (e.product_id) {
+        counts[e.product_id] = (counts[e.product_id] || 0) + 1;
+      }
+    });
+    const top10 = Object.keys(counts)
+      .sort((a, b) => counts[b] - counts[a])
+      .slice(0, 10);
+    top10BestsellerIds = new Set(top10);
+  }
+
+  // Fallback para teste: se não houver dados de analytics, pega os 10 primeiros como mais vendidos
+  if (top10BestsellerIds.size === 0 && products.length > 0) {
+    const fallbackIds = products.slice(0, 10).map((p) => p.id);
+    top10BestsellerIds = new Set(fallbackIds);
+  }
+
+  // 3. Aplica nas propriedades
+  return products.map((p) => ({
+    ...p,
+    is_featured: top20NewestIds.has(p.id),
+    is_bestseller: top10BestsellerIds.has(p.id),
+  }));
+}
+
+type VariationData = {
+  color_name: string;
+  color_slug: string;
+  hex_code?: string;
+  images?: { is_main: boolean; url: string; display_order?: number }[];
+  sizes?: { is_available: boolean; size: string }[];
+};
+
 // Conversor do banco para o modelo antigo do frontend (Fallback compatível)
-const mapSupabaseToLegacy = (row: any): LegacyProduct => {
-  const defaultImage =
-    "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=900&q=80";
+const mapSupabaseToLegacy = (row: unknown): LegacyProduct => {
+  const data = row as Record<string, unknown>;
+  const defaultImage = "https://placehold.co/900x1200/f8f9fa/a1a1aa?text=Imagem+Pendente";
 
   // Extraindo imagens da primeira variação se existir
-  const vars = row.variations || [];
+  const vars = (data.variations as VariationData[]) || [];
   let mainImage = defaultImage;
-  let allImages: string[] = [];
 
   if (vars.length > 0 && vars[0].images && vars[0].images.length > 0) {
     // Pega a principal ou a primeira
-    const mainImgObj = vars[0].images.find((i: any) => i.is_main) || vars[0].images[0];
+    const mainImgObj = vars[0].images.find((i) => i.is_main) || vars[0].images[0];
     mainImage = mainImgObj.url;
   }
 
   return {
-    id: row.id,
-    nome: row.name,
-    referencia: row.sku,
-    categoria: row.category?.slug || "sem-categoria",
-    descricao: row.description || row.short_description || "",
-    preco: Number(row.price),
+    id: data.id as string,
+    nome: data.name as string,
+    referencia: data.sku as string,
+    categoria: (data.category as { slug?: string })?.slug || "sem-categoria",
+    descricao: (data.description as string) || (data.short_description as string) || "",
+    preco: Number(data.price),
+    precoPromocional: data.promotional_price ? Number(data.promotional_price) : undefined,
     imagem: mainImage,
-    destaque: row.is_featured || false,
-    maisVendido: row.is_bestseller || false,
+    destaque: (data.is_featured as boolean) || false,
+    maisVendido: (data.is_bestseller as boolean) || false,
     tamanhos:
       vars.length > 0 && vars[0].sizes
-        ? vars[0].sizes.filter((s: any) => s.is_available).map((s: any) => s.size)
+        ? vars[0].sizes.filter((s) => s.is_available).map((s) => s.size)
         : ["P", "M", "G"],
-    variacoes: vars.map((v: any) => ({
+    composicao: data.composition as string | undefined,
+    cuidados: data.care_instructions as string | undefined,
+    dicaCaimento: data.fit_tip as string | undefined,
+    variacoes: vars.map((v) => ({
       cor: v.color_name,
       slug: v.color_slug,
       hex: v.hex_code || "#000000",
       thumb:
         v.images && v.images.length > 0
-          ? (v.images.find((i: any) => i.is_main) || v.images[0]).url
+          ? (v.images.find((i) => i.is_main) || v.images[0]).url
           : mainImage,
       imagens: v.images
         ? v.images
-            .sort((a: any, b: any) => (a.display_order || 0) - (b.display_order || 0))
-            .map((i: any) => i.url)
+            .filter((i) => {
+              if (vars.length > 1 && i.is_main) return false;
+              return true;
+            })
+            .sort((a, b) => (a.display_order || 0) - (b.display_order || 0))
+            .map((i) => i.url)
         : [],
+      tamanhos: v.sizes ? v.sizes.filter((s) => s.is_available).map((s) => s.size) : [],
     })),
   };
 };
 
 export const getPublicProducts = async (categorySlug?: string): Promise<LegacyProduct[]> => {
-  if (!isSupabaseConfigured()) {
-    return categorySlug ? PRODUCTS.filter((p) => p.categoria === categorySlug) : PRODUCTS;
-  }
-
   try {
-    let query = supabase
+    const query = supabase
       .from("products")
       .select(
         `
@@ -84,26 +169,22 @@ export const getPublicProducts = async (categorySlug?: string): Promise<LegacyPr
 
     const { data, error } = await query;
     if (error) throw error;
-    if (!data || data.length === 0) return PRODUCTS; // Fallback to mock if db is empty
+    if (!data || data.length === 0) return [];
 
-    const mapped = data.map(mapSupabaseToLegacy);
+    const enrichedData = await applyDynamicBadges(data);
+
+    const mapped = enrichedData.map(mapSupabaseToLegacy);
     if (categorySlug) {
       return mapped.filter((p) => p.categoria === categorySlug);
     }
     return mapped;
   } catch (error) {
-    console.error("Failed to fetch public products from Supabase, falling back to mock:", error);
-    return categorySlug ? PRODUCTS.filter((p) => p.categoria === categorySlug) : PRODUCTS;
+    console.error("Erro buscando produtos:", error);
+    return [];
   }
 };
 
 export const getPublicProductBySlug = async (slug: string): Promise<LegacyProduct | undefined> => {
-  if (!isSupabaseConfigured()) {
-    return PRODUCTS.find(
-      (p) => p.id === slug || p.nome.toLowerCase().replace(/\s+/g, "-") === slug,
-    ); // Mock id or name approximation
-  }
-
   try {
     const { data, error } = await supabase
       .from("products")
@@ -123,12 +204,13 @@ export const getPublicProductBySlug = async (slug: string): Promise<LegacyProduc
       .single();
 
     if (error || !data) {
-      return PRODUCTS.find((p) => p.id === slug);
+      return undefined;
     }
 
     return mapSupabaseToLegacy(data);
   } catch (error) {
-    return PRODUCTS.find((p) => p.id === slug);
+    console.error("Erro buscando produto por slug:", error);
+    return undefined;
   }
 };
 
@@ -137,8 +219,6 @@ export const getPublicProductBySlug = async (slug: string): Promise<LegacyProduc
 // ==========================================
 
 export const getAdminProducts = async (): Promise<FullProductAdmin[]> => {
-  if (!isSupabaseConfigured()) return [];
-
   const { data, error } = await supabase
     .from("products")
     .select(
@@ -155,7 +235,14 @@ export const getAdminProducts = async (): Promise<FullProductAdmin[]> => {
     .order("created_at", { ascending: false });
 
   if (error) throw error;
-  return data as any;
+
+  const enrichedData = await applyDynamicBadges(data);
+  return enrichedData as unknown as FullProductAdmin[];
+};
+
+export const deleteProduct = async (id: string): Promise<void> => {
+  const { error } = await supabase.from("products").delete().eq("id", id);
+  if (error) throw error;
 };
 
 // Importa mocks para o DB
@@ -230,7 +317,7 @@ export const migrateMocksToSupabase = async () => {
         }
 
         // Insere Tamanhos
-        const sizes = mock.tamanhos || ["P", "M", "G"];
+        const sizes = v.tamanhos || mock.tamanhos || ["P", "M", "G"];
         for (const s of sizes) {
           await supabase.from("product_sizes").insert({
             product_id: product.id,

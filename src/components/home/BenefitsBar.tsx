@@ -26,7 +26,7 @@ export function BenefitsBar() {
 
   return (
     <div className="w-full bg-[#FFF1F7]/60 border-y border-border/40 py-6 sm:py-8">
-      <div className="mx-auto max-w-7xl px-4">
+      <div className="mx-auto w-full max-w-[1600px] px-4 sm:px-8 lg:px-16 xl:px-24">
         <div className="grid grid-cols-2 gap-6 md:grid-cols-4 md:gap-4">
           {benefits.map((b, i) => {
             const Icon = b.icon;

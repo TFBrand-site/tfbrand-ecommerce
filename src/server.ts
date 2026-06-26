@@ -4,6 +4,7 @@ import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
 
 // Polyfill para WebSocket no Node 20 (necessário para o Supabase SSR)
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import ws from "ws";
 if (typeof globalThis !== "undefined" && !globalThis.WebSocket) {
   (globalThis as any).WebSocket = ws;

@@ -42,7 +42,7 @@ export function StyleSelection() {
   };
 
   return (
-    <section className="mx-auto max-w-7xl px-4 py-10 sm:py-16">
+    <section className="mx-auto w-full max-w-[1600px] px-4 sm:px-8 lg:px-16 xl:px-24 py-10 sm:py-16">
       <SectionHeader
         eyebrow="Sua Identidade"
         title="Escolha por Estilo"
@@ -54,7 +54,7 @@ export function StyleSelection() {
           <button
             key={idx}
             onClick={() => handleSelectStyle(s.query)}
-            className="group relative aspect-[3/4] overflow-hidden rounded-xl bg-muted cursor-pointer text-left w-full"
+            className="group relative aspect-3/4 overflow-hidden rounded-xl bg-muted cursor-pointer text-left w-full"
           >
             <img
               src={s.image}
@@ -64,7 +64,7 @@ export function StyleSelection() {
             />
 
             {/* Overlay degradê */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/15 to-transparent transition-opacity duration-300 group-hover:from-black/85" />
+            <div className="absolute inset-0 bg-linear-to-t from-black/75 via-black/15 to-transparent transition-opacity duration-300 group-hover:from-black/85" />
 
             {/* Borda sutil de hover com cor da marca */}
             <div className="absolute inset-0 rounded-xl border-2 border-transparent group-hover:border-[#D91672]/60 transition-all duration-300" />

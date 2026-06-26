@@ -12,10 +12,10 @@ export function ProductCard({ product }: { product: Product }) {
     <Link
       to="/product/$id"
       params={{ id: product.id }}
-      className="group flex flex-col h-full overflow-hidden rounded-xl bg-white transition-all duration-500 hover:-translate-y-1 hover:shadow-[0_15px_35px_-10px_rgba(0,0,0,0.06)] cursor-pointer text-current no-underline border border-transparent hover:border-black/[0.03]"
+      className="group flex flex-col h-full overflow-hidden rounded-xl bg-white transition-all duration-500 hover:-translate-y-1 hover:shadow-[0_15px_35px_-10px_rgba(0,0,0,0.06)] cursor-pointer text-current no-underline border border-transparent hover:border-black/3"
     >
       {/* Imagem */}
-      <div className="relative aspect-[3/4] overflow-hidden rounded-t-xl bg-[#F8F8F8] [transform:translateZ(0)]">
+      <div className="relative aspect-3/4 overflow-hidden rounded-t-xl bg-[#F8F8F8] transform-[translateZ(0)]">
         <img
           src={mainImage}
           alt={product.nome}
@@ -46,11 +46,6 @@ export function ProductCard({ product }: { product: Product }) {
               Mais Vendido
             </span>
           )}
-          {!product.destaque && !product.maisVendido && (
-            <span className="rounded-sm bg-white/80 backdrop-blur-sm px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-widest text-zinc-600 shadow-sm">
-              {cat}
-            </span>
-          )}
         </div>
       </div>
 
@@ -61,9 +56,20 @@ export function ProductCard({ product }: { product: Product }) {
         </h3>
 
         {/* Preço */}
-        <p className="font-display text-[15px] sm:text-base font-extrabold text-[#111] tracking-tight">
-          {formatPrice(product.preco)}
-        </p>
+        <div className="flex items-center gap-2 font-display text-[15px] sm:text-base tracking-tight min-h-[24px]">
+          {product.precoPromocional && product.precoPromocional < product.preco ? (
+            <>
+              <span className="font-extrabold text-[#D91672]">
+                {formatPrice(product.precoPromocional)}
+              </span>
+              <span className="text-xs text-zinc-400 line-through font-normal">
+                {formatPrice(product.preco)}
+              </span>
+            </>
+          ) : (
+            <span className="font-extrabold text-[#111]">{formatPrice(product.preco)}</span>
+          )}
+        </div>
 
         {/* Quantidade de Cores */}
         <div className="flex items-center mt-2 min-h-[16px]">

@@ -38,17 +38,17 @@
 
 :root {
   --radius: 0.75rem;
-  /* Fundo rosa suave, perceptível e discreto no lugar do antigo bege */
-  --background: oklch(0.97 0.012 345);
+  /* Fundo rosa claro e feminino, mantendo a suavidade */
+  --background: oklch(0.96 0.02 345);
   /* Texto grafite com tom ameixa/rosa escuro */
   --foreground: oklch(0.2 0.015 345);
-  --nude: oklch(0.97 0.012 345);
+  --nude: oklch(0.96 0.02 345);
   /* Cards em branco puro */
   --card: oklch(0.995 0.002 345);
   --card-foreground: oklch(0.2 0.015 345);
   --popover: oklch(0.995 0.002 345);
   --popover-foreground: oklch(0.2 0.015 345);
-  /* Botões primários e detalhes em preto nobre da boutique */
+  /* Botões primários e detalhes em preto nobre da loja */
   --primary: oklch(0.16 0 0);
   --primary-foreground: oklch(0.985 0 0);
   --secondary: oklch(0.94 0.015 345);

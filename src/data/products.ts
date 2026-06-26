@@ -10,7 +10,18 @@ export type Product = {
   maisVendido: boolean;
   tamanhos?: string[];
   tags?: string[];
-  variacoes?: { cor: string; slug: string; hex: string; thumb: string; imagens: string[] }[];
+  variacoes?: {
+    cor: string;
+    slug: string;
+    hex: string;
+    thumb: string;
+    imagens: string[];
+    tamanhos?: string[];
+  }[];
+  precoPromocional?: number;
+  composicao?: string;
+  cuidados?: string;
+  dicaCaimento?: string;
 };
 
 // Imagens placeholder de moda feminina (Unsplash). Substitua pelas reais.

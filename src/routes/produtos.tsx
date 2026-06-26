@@ -1,14 +1,12 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { getPublicProducts } from "@/lib/services/products.service";
 import { CATEGORIES } from "@/data/categories";
 import { ProductGrid } from "@/components/product/ProductGrid";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { CartDrawer } from "@/components/cart/CartDrawer";
-import { FloatingCartBar } from "@/components/cart/FloatingCartBar";
 import { FloatingWhatsAppButton } from "@/components/common/FloatingWhatsAppButton";
-import { NewsletterFooter } from "@/components/common/NewsletterFooter";
 import { Toaster } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
 import { whatsappLink } from "@/lib/config";
@@ -27,6 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Slider } from "@/components/ui/slider";
 
 type ProductSearch = {
   categoria?: string;
@@ -86,7 +85,19 @@ function ProdutosPage() {
   const { products } = Route.useLoaderData();
   const { categoria, busca, filtro, ordenacao, tamanho, cor, preco } = Route.useSearch();
   const navigate = useNavigate({ from: Route.id });
+  const maxPrecoTotal =
+    products && products.length > 0
+      ? Math.ceil(Math.max(...products.map((p) => p.preco)) / 50) * 50
+      : 1000;
+
   const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
+  const [localPreco, setLocalPreco] = useState<[number, number]>(
+    preco ? (preco.split("-").map(Number) as [number, number]) : [0, maxPrecoTotal],
+  );
+
+  useEffect(() => {
+    setLocalPreco(preco ? (preco.split("-").map(Number) as [number, number]) : [0, maxPrecoTotal]);
+  }, [preco, maxPrecoTotal]);
 
   const query = busca || "";
   const category = categoria || "";
@@ -163,7 +174,7 @@ function ProdutosPage() {
     }
 
     return result;
-  }, [query, category, filtro, ordenacao, tamanho, cor, preco]);
+  }, [query, category, filtro, ordenacao, tamanho, cor, preco, products]);
 
   const updateSearch = (updates: Partial<ProductSearch>) => {
     navigate({ search: (prev) => ({ ...prev, ...updates }) });
@@ -177,7 +188,7 @@ function ProdutosPage() {
     categoryKeys.length + (filtro ? 1 : 0) + (tamanho ? 1 : 0) + (cor ? 1 : 0) + (preco ? 1 : 0);
   const hasActiveFilters = activeFilterCount > 0;
 
-  const FiltersContent = () => (
+  const filtersContent = (
     <Accordion
       type="multiple"
       defaultValue={["categoria", "preco", "tamanho", "cor"]}
@@ -197,10 +208,10 @@ function ProdutosPage() {
                   key={c.slug}
                   onClick={() => toggleCategory(c.slug)}
                   className={cn(
-                    "px-4 py-2.5 rounded-full border text-xs font-medium transition-colors cursor-pointer",
+                    "px-4 py-1.5 rounded-full border text-[13px] font-medium transition-colors cursor-pointer",
                     isSelected
                       ? "border-[#111] bg-[#111] text-white"
-                      : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-400",
+                      : "border-zinc-200 bg-white text-zinc-800 hover:border-zinc-400",
                   )}
                 >
                   {c.label}
@@ -217,21 +228,23 @@ function ProdutosPage() {
           Preço
         </AccordionTrigger>
         <AccordionContent className="pt-0 pb-5">
-          <div className="flex flex-wrap gap-2">
-            {FAIXAS_PRECO.map((f) => (
-              <button
-                key={f.value}
-                onClick={() => updateSearch({ preco: preco === f.value ? undefined : f.value })}
-                className={cn(
-                  "px-4 py-2.5 rounded-full border text-xs font-medium transition-colors cursor-pointer",
-                  preco === f.value
-                    ? "border-[#111] bg-[#111] text-white"
-                    : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-400",
-                )}
-              >
-                {f.label}
-              </button>
-            ))}
+          <div className="flex flex-col gap-6 pt-2 px-1">
+            <Slider
+              min={0}
+              max={maxPrecoTotal}
+              step={10}
+              value={localPreco}
+              onValueChange={(val) => setLocalPreco(val as [number, number])}
+              onValueCommit={(val) => {
+                const [min, max] = val;
+                if (min === 0 && max === maxPrecoTotal) updateSearch({ preco: undefined });
+                else updateSearch({ preco: `${min}-${max}` });
+              }}
+            />
+            <div className="flex items-center justify-between text-sm font-medium text-zinc-600">
+              <span>R$ {localPreco[0]}</span>
+              <span>R$ {localPreco[1]}</span>
+            </div>
           </div>
         </AccordionContent>
       </AccordionItem>
@@ -248,10 +261,10 @@ function ProdutosPage() {
                 key={t}
                 onClick={() => updateSearch({ tamanho: tamanho === t ? undefined : t })}
                 className={cn(
-                  "min-w-12 px-4 py-2.5 rounded-full border text-xs font-medium flex items-center justify-center transition-colors cursor-pointer",
+                  "min-w-[40px] px-3 py-1.5 rounded-full border text-[13px] font-medium flex items-center justify-center transition-colors cursor-pointer",
                   tamanho === t
                     ? "border-[#111] bg-[#111] text-white"
-                    : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-400",
+                    : "border-zinc-200 bg-white text-zinc-800 hover:border-zinc-400",
                 )}
               >
                 {t}
@@ -274,10 +287,10 @@ function ProdutosPage() {
                   key={c}
                   onClick={() => updateSearch({ cor: cor === c ? undefined : c })}
                   className={cn(
-                    "px-4 py-2.5 rounded-full border text-xs font-medium transition-colors cursor-pointer",
+                    "px-4 py-1.5 rounded-full border text-[13px] font-medium transition-colors cursor-pointer",
                     cor === c
                       ? "border-[#111] bg-[#111] text-white"
-                      : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-400",
+                      : "border-zinc-200 bg-white text-zinc-800 hover:border-zinc-400",
                   )}
                 >
                   {c}
@@ -291,7 +304,7 @@ function ProdutosPage() {
   );
 
   return (
-    <div className="min-h-screen bg-[#FAF7F6] flex flex-col">
+    <div className="min-h-screen bg-[#FDF2F8] flex flex-col">
       <Header />
 
       <main className="flex-1 w-full mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-4 md:py-6 flex flex-col">
@@ -337,10 +350,10 @@ function ProdutosPage() {
                           toggleCategory(slug);
                         }}
                         className={cn(
-                          "px-4 py-1.5 rounded-full border text-xs font-medium transition-colors cursor-pointer capitalize",
+                          "px-5 py-2 sm:px-6 sm:py-2.5 rounded-full border text-[13px] sm:text-sm font-medium transition-colors cursor-pointer",
                           isActive
                             ? "border-[#111] bg-[#111] text-white"
-                            : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-400",
+                            : "border-zinc-200 bg-white text-zinc-800 hover:border-zinc-400",
                         )}
                       >
                         {cat}
@@ -387,7 +400,7 @@ function ProdutosPage() {
                       <button
                         key={sug}
                         onClick={() => updateSearch({ busca: sug })}
-                        className="px-4 py-1.5 rounded-full border border-zinc-200 bg-white text-xs font-medium text-zinc-700 hover:border-zinc-400 transition-colors cursor-pointer capitalize"
+                        className="px-5 py-2 sm:px-6 sm:py-2.5 rounded-full border border-zinc-200 bg-white text-[13px] sm:text-sm font-medium text-zinc-800 hover:border-zinc-400 transition-colors cursor-pointer"
                       >
                         {sug}
                       </button>
@@ -400,7 +413,7 @@ function ProdutosPage() {
         </div>
 
         {/* Toolbar de Catálogo */}
-        <div className="sticky top-[60px] sm:top-16 z-30 bg-[#FAF7F6]/95 backdrop-blur-md py-3 sm:py-4 mb-4 flex items-center justify-between gap-2">
+        <div className="sticky top-[60px] sm:top-16 z-30 bg-[#FDF2F8]/95 backdrop-blur-md py-3 sm:py-4 mb-4 flex items-center justify-between gap-2">
           <p className="text-[11px] sm:text-sm text-zinc-500 font-medium whitespace-nowrap">
             <span className="text-zinc-900 font-bold">{filtered.length}</span>{" "}
             <span className="hidden sm:inline">
@@ -418,32 +431,33 @@ function ProdutosPage() {
               </SheetTrigger>
               <SheetContent
                 side="right"
-                className="w-[100%] sm:w-[400px] p-0 flex flex-col bg-white"
+                className="w-full sm:w-[400px] p-0 flex flex-col bg-white sm:rounded-[24px] sm:right-4 sm:top-4 sm:bottom-4 sm:h-[calc(100vh-32px)] border-none"
               >
                 <SheetHeader className="p-6 border-b border-zinc-100 text-left shrink-0">
                   <SheetTitle className="text-xl font-display font-bold">Filtrar por</SheetTitle>
                 </SheetHeader>
 
                 <div className="flex-1 overflow-y-auto px-6 py-4 slim-scrollbar">
-                  <FiltersContent />
+                  {filtersContent}
                 </div>
 
                 {/* Footer do Drawer Fixo */}
-                <div className="p-6 border-t border-zinc-100 bg-white flex items-center justify-between shrink-0 gap-4 shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.05)]">
+                <div className="p-5 sm:p-6 border-t border-zinc-100 bg-white flex items-center justify-between shrink-0 gap-3 sm:rounded-b-[24px] shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.05)]">
                   <button
                     onClick={() => {
                       clearFilters();
                       setIsMobileFiltersOpen(false);
                     }}
-                    className="flex-1 rounded-md border border-zinc-200 bg-white py-3 text-sm font-bold text-[#111] hover:bg-zinc-50 transition cursor-pointer text-center"
+                    className="flex-1 rounded-full bg-[#E5E5E5] py-3 text-[14px] font-medium text-[#767676] hover:bg-[#d4d4d4] transition cursor-pointer text-center"
                   >
-                    Limpar
+                    Limpar filtros
                   </button>
                   <button
                     onClick={() => setIsMobileFiltersOpen(false)}
-                    className="flex-[2] rounded-md bg-[#111] py-3 text-sm font-bold text-white hover:bg-[#D91672] transition shadow-sm cursor-pointer text-center"
+                    className="flex-[1.5] rounded-full bg-[#D91672] py-3 text-[14px] font-bold text-white hover:bg-[#b0105b] transition shadow-sm cursor-pointer text-center flex items-center justify-center gap-2"
                   >
-                    {filtered.length} {filtered.length === 1 ? "produto" : "produtos"} &rarr;
+                    {filtered.length} {filtered.length === 1 ? "produto" : "produtos"}{" "}
+                    <span>&rarr;</span>
                   </button>
                 </div>
               </SheetContent>
@@ -596,7 +610,7 @@ function ProdutosPage() {
             {/* Help Section - Personal Shopper */}
             <div className="mt-16 sm:mt-24 mb-8 w-full bg-white border border-[#D91672]/10 rounded-2xl overflow-hidden shadow-sm relative isolate">
               {/* Background Effect */}
-              <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-[#D91672]/[0.03] via-transparent to-transparent"></div>
+              <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top_right,var(--tw-gradient-stops))] from-[#D91672]/3 via-transparent to-transparent"></div>
 
               <div className="flex flex-col sm:flex-row items-center justify-between p-8 sm:p-12 gap-8 text-center sm:text-left">
                 <div className="flex-1 max-w-xl">
@@ -633,10 +647,8 @@ function ProdutosPage() {
         </div>
       </main>
 
-      <NewsletterFooter />
       <Footer />
       <FloatingWhatsAppButton />
-      <FloatingCartBar />
       <CartDrawer />
       <Toaster position="top-center" />
     </div>

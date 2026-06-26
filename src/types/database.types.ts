@@ -31,6 +31,13 @@ export type Database = {
           display_order?: number | null;
           created_at?: string;
         };
+        Relationships: {
+          foreignKeyName: string;
+          columns: string[];
+          isOneToOne?: boolean;
+          referencedRelation: string;
+          referencedColumns: string[];
+        }[];
       };
       products: {
         Row: {
@@ -99,6 +106,13 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: {
+          foreignKeyName: string;
+          columns: string[];
+          isOneToOne?: boolean;
+          referencedRelation: string;
+          referencedColumns: string[];
+        }[];
       };
       product_variations: {
         Row: {
@@ -131,6 +145,13 @@ export type Database = {
           active?: boolean | null;
           created_at?: string;
         };
+        Relationships: {
+          foreignKeyName: string;
+          columns: string[];
+          isOneToOne?: boolean;
+          referencedRelation: string;
+          referencedColumns: string[];
+        }[];
       };
       product_images: {
         Row: {
@@ -163,6 +184,13 @@ export type Database = {
           display_order?: number | null;
           created_at?: string;
         };
+        Relationships: {
+          foreignKeyName: string;
+          columns: string[];
+          isOneToOne?: boolean;
+          referencedRelation: string;
+          referencedColumns: string[];
+        }[];
       };
       product_sizes: {
         Row: {
@@ -192,6 +220,13 @@ export type Database = {
           is_available?: boolean | null;
           created_at?: string;
         };
+        Relationships: {
+          foreignKeyName: string;
+          columns: string[];
+          isOneToOne?: boolean;
+          referencedRelation: string;
+          referencedColumns: string[];
+        }[];
       };
       size_guides: {
         Row: {
@@ -227,6 +262,13 @@ export type Database = {
           length?: string | null;
           created_at?: string;
         };
+        Relationships: {
+          foreignKeyName: string;
+          columns: string[];
+          isOneToOne?: boolean;
+          referencedRelation: string;
+          referencedColumns: string[];
+        }[];
       };
       analytics_events: {
         Row: {
@@ -250,6 +292,13 @@ export type Database = {
           user_agent?: string | null;
           created_at?: string;
         };
+        Relationships: {
+          foreignKeyName: string;
+          columns: string[];
+          isOneToOne?: boolean;
+          referencedRelation: string;
+          referencedColumns: string[];
+        }[];
       };
       store_settings: {
         Row: {
@@ -279,6 +328,58 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: {
+          foreignKeyName: string;
+          columns: string[];
+          isOneToOne?: boolean;
+          referencedRelation: string;
+          referencedColumns: string[];
+        }[];
+      };
+      leads: {
+        Row: {
+          id: string;
+          customer_name: string | null;
+          customer_phone: string | null;
+          items: Json;
+          subtotal: number;
+          status: "iniciado" | "confirmado" | "cancelado";
+          device_info: string | null;
+          origin: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          customer_name?: string | null;
+          customer_phone?: string | null;
+          items: Json;
+          subtotal: number;
+          status?: "iniciado" | "confirmado" | "cancelado";
+          device_info?: string | null;
+          origin?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          customer_name?: string | null;
+          customer_phone?: string | null;
+          items?: Json;
+          subtotal?: number;
+          status?: "iniciado" | "confirmado" | "cancelado";
+          device_info?: string | null;
+          origin?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: {
+          foreignKeyName: string;
+          columns: string[];
+          isOneToOne?: boolean;
+          referencedRelation: string;
+          referencedColumns: string[];
+        }[];
       };
     };
     Views: {

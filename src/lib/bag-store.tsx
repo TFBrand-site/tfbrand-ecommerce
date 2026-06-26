@@ -105,7 +105,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
     () => ({
       items: state.items,
       count: state.items.reduce((a, i) => a + i.qty, 0),
-      subtotal: state.items.reduce((a, i) => a + i.qty * i.product.preco, 0),
+      subtotal: state.items.reduce((a, i) => {
+        const itemPrice = i.product.precoPromocional ?? i.product.preco;
+        return a + i.qty * itemPrice;
+      }, 0),
       open,
       setOpen,
       add: (p, size, color) => {

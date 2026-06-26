@@ -8,7 +8,7 @@ export function FloatingWhatsAppButton() {
       target="_blank"
       rel="noreferrer"
       aria-label="Falar no WhatsApp"
-      className="fixed bottom-20 right-4 z-30 flex h-12 w-12 items-center justify-center rounded-full bg-[#25D366] text-white shadow-lg transition hover:scale-105 sm:bottom-6"
+      className="fixed bottom-6 right-4 z-30 flex h-12 w-12 items-center justify-center rounded-full bg-[#25D366] text-white shadow-lg transition hover:scale-105"
     >
       <WhatsAppIcon className="h-6 w-6" />
     </a>

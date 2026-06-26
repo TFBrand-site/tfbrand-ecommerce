@@ -19,7 +19,7 @@ export function NewsletterFooter() {
       <div className="relative mx-auto max-w-lg px-4 text-center">
         {/* Eyebrow */}
         <span className="text-[11px] font-bold uppercase tracking-[0.25em] text-[#D91672]">
-          Exclusivo para Assinantes
+          PARTICIPE DAS NOSSAS LIVES PROMOCIONAIS
         </span>
 
         <h2 className="font-display mt-3 text-3xl font-extrabold text-white sm:text-4xl">
@@ -27,7 +27,7 @@ export function NewsletterFooter() {
         </h2>
 
         <p className="mx-auto mt-3 max-w-sm text-sm text-white/55 leading-relaxed">
-          Receba primeiro os lançamentos, ofertas exclusivas e novidades da TFBrand.
+          RECEBA AVISOS PRÉVIOS DAS LIVES
         </p>
 
         <form

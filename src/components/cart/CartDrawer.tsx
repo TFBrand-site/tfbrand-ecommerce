@@ -4,11 +4,10 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/lib/bag-store";
 import { formatPrice } from "@/data/products";
-import { CheckoutModal } from "./CheckoutModal";
+import { Link } from "@tanstack/react-router";
 
 export function CartDrawer() {
   const { items, subtotal, open, setOpen, setQty, remove } = useCart();
-  const [checkoutOpen, setCheckoutOpen] = useState(false);
 
   return (
     <>
@@ -86,7 +85,7 @@ export function CartDrawer() {
                             </button>
                           </div>
                           <span className="font-display text-base font-semibold">
-                            {formatPrice(product.preco * qty)}
+                            {formatPrice((product.precoPromocional ?? product.preco) * qty)}
                           </span>
                         </div>
                       </div>
@@ -103,11 +102,13 @@ export function CartDrawer() {
                   </span>
                 </div>
                 <Button
+                  asChild
                   className="w-full rounded-full bg-[#D91672] hover:bg-[#c11363] text-white py-6 text-sm font-semibold tracking-wider uppercase cursor-pointer transition shadow-md"
                   size="lg"
-                  onClick={() => setCheckoutOpen(true)}
                 >
-                  Finalizar pelo WhatsApp
+                  <Link to="/checkout" onClick={() => setOpen(false)}>
+                    Finalizar pelo WhatsApp
+                  </Link>
                 </Button>
                 <p className="mt-2 text-center text-[11px] text-muted-foreground">
                   Pagamento e entrega confirmados via WhatsApp.
@@ -117,8 +118,6 @@ export function CartDrawer() {
           )}
         </SheetContent>
       </Sheet>
-
-      <CheckoutModal open={checkoutOpen} onClose={() => setCheckoutOpen(false)} />
     </>
   );
 }

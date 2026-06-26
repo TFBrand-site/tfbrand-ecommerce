@@ -8,7 +8,7 @@ export function Lancamentos({ products }: { products: Product[] }) {
   return (
     <section
       id="lancamentos"
-      className="mx-auto max-w-7xl px-4 py-8 sm:py-14 flex flex-col items-center"
+      className="mx-auto w-full max-w-[1600px] px-4 sm:px-8 lg:px-16 xl:px-24 py-8 sm:py-14 flex flex-col items-center"
     >
       <div className="w-full">
         <SectionHeader

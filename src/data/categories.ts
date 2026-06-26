@@ -10,4 +10,5 @@ export const CATEGORIES: Category[] = [
   { slug: "saias", label: "Saias" },
   { slug: "blusas", label: "Blusas" },
   { slug: "calcas", label: "Calças" },
+  { slug: "casacos", label: "Casacos" },
 ];

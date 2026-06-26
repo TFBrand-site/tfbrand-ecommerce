@@ -5,9 +5,8 @@ import { Hero } from "@/components/home/Hero";
 import { Lancamentos } from "@/components/home/Lancamentos";
 import { BestSellers } from "@/components/home/BestSellers";
 import { CartDrawer } from "@/components/cart/CartDrawer";
-import { FloatingCartBar } from "@/components/cart/FloatingCartBar";
 import { FloatingWhatsAppButton } from "@/components/common/FloatingWhatsAppButton";
-import { NewsletterFooter } from "@/components/common/NewsletterFooter";
+
 import { Toaster } from "@/components/ui/sonner";
 import { getPublicProducts } from "@/lib/services/products.service";
 
@@ -22,13 +21,13 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Conheça a TFBrand, boutique feminina online com peças selecionadas, lançamentos e compra simples pelo WhatsApp.",
+          "Conheça a TFBrand, loja feminina com peças selecionadas, lançamentos exclusivos, preços imperdíveis e compra simplificada.",
       },
       { property: "og:title", content: "TFBrand | Moda Feminina Online" },
       {
         property: "og:description",
         content:
-          "Conheça a TFBrand, boutique feminina online com peças selecionadas, lançamentos e compra simples pelo WhatsApp.",
+          "Conheça a TFBrand, loja feminina com peças selecionadas, lançamentos exclusivos, preços imperdíveis e compra simplificada.",
       },
       { property: "og:url", content: "/" },
     ],
@@ -48,10 +47,9 @@ function Index() {
         <Lancamentos products={products} />
         <BestSellers products={products} />
       </main>
-      <NewsletterFooter />
+
       <Footer />
       <FloatingWhatsAppButton />
-      <FloatingCartBar />
       <CartDrawer />
       <Toaster position="top-center" />
     </div>

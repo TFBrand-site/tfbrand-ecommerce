@@ -16,7 +16,7 @@ const slides = [
     cta1: "Ver lançamentos",
     cta2: "Comprar pelo WhatsApp",
     accent: "#D91672",
-    linkSearch: { filtro: "lancamentos" },
+    href: "/#lancamentos",
   },
   {
     // Look de moda editorial com pose sofisticada
@@ -28,7 +28,7 @@ const slides = [
     cta1: "Ver todos os produtos",
     cta2: "Comprar pelo WhatsApp",
     accent: "#D91672",
-    linkSearch: {},
+    href: "/produtos",
   },
   {
     // Editorial de moda feminina – iluminação profissional
@@ -37,10 +37,10 @@ const slides = [
     eyebrow: "Tendências · Exclusivo",
     title: ["Moda feminina", "com atitude"],
     subtitle: "Moda moderna, sofisticada e pronta para acompanhar você em qualquer ocasião.",
-    cta1: "Ver todos os produtos",
+    cta1: "Mais vendidos",
     cta2: "Comprar pelo WhatsApp",
     accent: "#D91672",
-    linkSearch: {},
+    href: "/#mais-vendidos",
   },
 ];
 
@@ -93,14 +93,14 @@ export function Hero() {
         <div
           key={i}
           aria-hidden={i !== current}
-          className={`absolute inset-0 transition-opacity duration-[900ms] ease-in-out ${
+          className={`absolute inset-0 transition-opacity duration-900 ease-in-out ${
             i === current ? "opacity-100 z-10" : "opacity-0 z-0"
           }`}
         >
           <img
             src={slide.image}
             alt=""
-            className={`h-full w-full object-cover object-center transition-transform duration-[6000ms] ease-out ${
+            className={`h-full w-full object-cover object-center transition-transform duration-6000 ease-out ${
               i === current ? "scale-105" : "scale-100"
             }`}
             loading={i === 0 ? "eager" : "lazy"}
@@ -111,11 +111,11 @@ export function Hero() {
 
       {/* ── Overlays ──────────────────────────────────────────────────────── */}
       {/* Gradiente lateral esquerdo – área de texto */}
-      <div className="absolute inset-0 z-20 bg-gradient-to-r from-black/80 via-black/50 to-black/5" />
+      <div className="absolute inset-0 z-20 bg-linear-to-r from-black/80 via-black/50 to-black/5" />
       {/* Gradiente inferior – profundidade */}
-      <div className="absolute inset-x-0 bottom-0 z-20 h-48 bg-gradient-to-t from-black/60 to-transparent" />
+      <div className="absolute inset-x-0 bottom-0 z-20 h-48 bg-linear-to-t from-black/60 to-transparent" />
       {/* Vinheta superior suave */}
-      <div className="absolute inset-x-0 top-0 z-20 h-32 bg-gradient-to-b from-black/30 to-transparent" />
+      <div className="absolute inset-x-0 top-0 z-20 h-32 bg-linear-to-b from-black/30 to-transparent" />
       {/* Grain texture para toque luxuoso */}
       <div
         className="absolute inset-0 z-20 opacity-[0.04] pointer-events-none"
@@ -149,7 +149,7 @@ export function Hero() {
 
               {/* Título principal – duas linhas */}
               <h1
-                className="font-display font-extrabold leading-[1.0] tracking-tight text-white"
+                className="font-display font-extrabold leading-none tracking-tight text-white"
                 style={{ fontSize: "clamp(2.2rem, 8vw, 5rem)" }}
               >
                 {s.title[0]}
@@ -171,14 +171,14 @@ export function Hero() {
 
               {/* CTAs */}
               <div className="mt-8 flex flex-col sm:flex-row gap-3">
-                <button
-                  onClick={() => navigate({ to: "/produtos", search: s.linkSearch })}
+                <a
+                  href={s.href}
                   className="group inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-full px-7 py-3 text-sm font-bold text-white transition-all duration-300 hover:brightness-90 hover:-translate-y-0.5 active:translate-y-0 shadow-lg cursor-pointer"
                   style={{ background: s.accent }}
                 >
                   {s.cta1}
                   <ArrowUpRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-                </button>
+                </a>
 
                 <Button
                   variant="outline"
